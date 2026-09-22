@@ -2,7 +2,7 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ElvA — такси по Олёкминску</title>
 <!-- Установка на экран «Домой» и push-уведомления -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -34,9 +34,20 @@
 
   *{ box-sizing: border-box; }
 
+  /* Это приложение, а не страница: масштабировать щипком и двойным касанием
+     нечего, «резиновое» оттягивание за край тоже ни к чему. */
+  html{
+    height: 100%;
+    -webkit-text-size-adjust: 100%;
+    overscroll-behavior: none;
+  }
+
   body{
     margin: 0;
     min-height: 100vh;
+    touch-action: pan-x pan-y;
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
     background: radial-gradient(1200px 600px at 50% -10%, #1c2550 0%, var(--night) 60%);
     font-family: 'Manrope', sans-serif;
     color: var(--text);
@@ -178,7 +189,9 @@
     border: 1px solid var(--line);
     color: var(--text);
     font-family: 'Manrope', sans-serif;
-    font-size: 15px;
+    /* Ровно 16px: при меньшем размере iPhone при нажатии на поле
+       самостоятельно приближает экран, и вёрстка «уезжает». */
+    font-size: 16px;
     padding: 13px 14px;
     border-radius: 12px;
     outline: none;
@@ -433,7 +446,7 @@
   .section-label{ font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: none; margin: 4px 0 -6px; }
 
   .price-picker{ margin-bottom: 10px; }
-  .price-picker input{ font-size: 13.5px; padding: 10px 12px; }
+  .price-picker input{ font-size: 16px; padding: 10px 12px; }
   .counter-offer{ margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
   .counter-offer .req-actions{ margin-top: 10px; }
 
@@ -472,11 +485,16 @@
   }
   .burger-btn.ghost{ visibility: hidden; }
 
+  /* Меню всегда в разметке и стоит за левым краем экрана. Открытие —
+     это сдвиг, а не включение: иначе оно появляется рывком. */
   .menu-overlay{
     position: fixed; inset: 0;
     background: rgba(5,12,15,0.6);
     z-index: 20;
+    opacity: 0;
+    transition: opacity 0.28s ease;
   }
+  .menu-overlay.open{ opacity: 1; }
   .side-menu{
     position: fixed;
     top: 0; left: 0; bottom: 0;
@@ -485,11 +503,21 @@
     z-index: 21;
     background: var(--surface);
     border-right: 1px solid var(--line);
-    padding: 28px 20px 20px;
+    padding: calc(28px + env(safe-area-inset-top)) 20px calc(20px + env(safe-area-inset-bottom));
     display: flex;
     flex-direction: column;
     gap: 18px;
     overflow-y: auto;
+    overscroll-behavior: contain;
+    transform: translateX(-100%);
+    transition: transform 0.28s cubic-bezier(0.22, 0.61, 0.36, 1);
+    will-change: transform;
+  }
+  .side-menu.open{ transform: translateX(0); }
+  .menu-overlay[hidden], .side-menu[hidden]{ display: none; }
+
+  @media (prefers-reduced-motion: reduce){
+    .menu-overlay, .side-menu{ transition: none; }
   }
   .menu-profile{ padding-bottom: 4px; }
   .menu-name{ font-size: 19px; font-weight: 700; }
@@ -526,6 +554,30 @@
   .history-status-done{ color: var(--success); }
   .history-status-cancelled{ color: var(--danger); }
   .history-more{ margin-top: 4px; }
+
+  /* На телефоне приложение занимает весь экран: страница целиком не
+     прокручивается и не оттягивается, ездит только содержимое. */
+  @media (max-width: 560px){
+    html, body{ height: 100%; overflow: hidden; }
+    body{ padding: 0; }
+    .app-shell{
+      height: 100%;
+      min-height: 0;
+      max-width: none;
+      border-radius: 0;
+      box-shadow: none;
+    }
+    .header{ padding-top: calc(24px + env(safe-area-inset-top)); }
+    main{
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+      overscroll-behavior: contain;
+    }
+    .footer-note{
+      flex: none;
+      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+    }
+  }
 
   #splash{
     position: fixed; inset: 0;
@@ -842,6 +894,12 @@ void main(){
   const supabaseLoaded = !!(window.supabase && window.supabase.createClient);
   const isConfigured = supabaseLoaded && !SUPABASE_URL.includes('ВАШ') && !SUPABASE_ANON_KEY.includes('ВАШ');
   const sb = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  // Safari на iPhone не всегда слушается user-scalable=no, поэтому жест
+  // «щипок» гасим ещё и вручную.
+  ['gesturestart', 'gesturechange', 'gestureend'].forEach(name => {
+    document.addEventListener(name, e => e.preventDefault(), { passive: false });
+  });
 
   function showBanner(text, type){
     const el = document.getElementById('conn-banner');
@@ -2190,15 +2248,36 @@ void main(){
   }
 
   // ---------- боковое меню и смена роли ----------
+  // Меню сначала показываем (оно стоит за краем экрана), и только следующим
+  // кадром включаем класс open — иначе браузер не увидит начального положения
+  // и сдвиг получится мгновенным. При закрытии — наоборот: сперва уезжает,
+  // потом прячем.
+  let menuHideTimer = null;
+  const MENU_ANIM_MS = 300;
+
   function openMenu(){
     refreshMenu();
-    document.getElementById('menu-overlay').hidden = false;
-    document.getElementById('side-menu').hidden = false;
+    const overlay = document.getElementById('menu-overlay');
+    const menu = document.getElementById('side-menu');
+    clearTimeout(menuHideTimer);
+    overlay.hidden = false;
+    menu.hidden = false;
+    void menu.offsetWidth;
+    overlay.classList.add('open');
+    menu.classList.add('open');
   }
 
   function closeMenu(){
-    document.getElementById('menu-overlay').hidden = true;
-    document.getElementById('side-menu').hidden = true;
+    const overlay = document.getElementById('menu-overlay');
+    const menu = document.getElementById('side-menu');
+    if(menu.hidden) return;
+    overlay.classList.remove('open');
+    menu.classList.remove('open');
+    clearTimeout(menuHideTimer);
+    menuHideTimer = setTimeout(() => {
+      overlay.hidden = true;
+      menu.hidden = true;
+    }, MENU_ANIM_MS);
   }
 
   // Рейтинг в меню — всегда той роли, в которой человек сейчас находится:
