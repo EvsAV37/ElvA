@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>ElvA — такси по Олёкминску</title>
+<!-- Установка на экран «Домой» и push-уведомления -->
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="ElvA">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<meta name="theme-color" content="#03070a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -530,6 +538,11 @@
 
 
 
+  .push-card .push-title{ font-weight: 700; margin-bottom: 6px; }
+  .push-card .push-text{ color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
+  .push-card .push-actions{ display: flex; gap: 8px; }
+  .push-card .push-actions button{ flex: 1; margin: 0; }
+
   [hidden]{ display: none !important; }
 </style>
 </head>
@@ -809,6 +822,7 @@ void main(){
       </div>
     </section>
 
+    <section id="push-card" class="order-card push-card" hidden></section>
     <section id="view-passenger" hidden></section>
     <section id="view-driver" hidden></section>
     <section id="view-history" hidden></section>
@@ -1082,11 +1096,118 @@ void main(){
     document.getElementById('view-login').hidden = true;
     document.getElementById('burger-btn').classList.remove('ghost');
     switchView(currentView);
+    initPush();
     await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles()]);
     try {
       subscribeRealtime();
     } catch(e){
       console.error('Realtime subscribe failed:', e);
+    }
+  }
+
+  // ---------- push-уведомления ----------
+  // Работают только на сайте с https-адресом: из файла, открытого на телефоне,
+  // браузер уведомления не разрешит в принципе. На iPhone — только если ElvA
+  // добавлено на экран «Домой» и запущено с иконки (ограничение Apple).
+  const VAPID_PUBLIC_KEY = 'BP5msxgPxSDNLtuCD5Ui07eBhoJOnuLQGvml2XeeBOrMHZd1moRdLDn3xcb5-QrE7qQZo_DzPo5z_Z9BMCU-lgI';
+  const PUSH_DISMISS_KEY = 'elva_push_card_dismissed';
+  const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
+  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+  let swReg = null;
+
+  async function initPush(){
+    if(location.protocol !== 'https:' || !('serviceWorker' in navigator)) return;
+    try {
+      swReg = await navigator.serviceWorker.register('./sw.js');
+    } catch(e){
+      console.error('service worker:', e);
+      return;
+    }
+    // Уже разрешено раньше — тихо обновляем подписку: вдруг на этом телефоне
+    // сменили аккаунт, тогда уведомления должны приходить новому владельцу.
+    if(pushSupported && Notification.permission === 'granted'){
+      await subscribePush(false);
+    }
+    refreshPushCard();
+  }
+
+  function refreshPushCard(){
+    const el = document.getElementById('push-card');
+    let dismissed = false;
+    try { dismissed = localStorage.getItem(PUSH_DISMISS_KEY) === '1'; } catch(e){}
+    let html = '';
+    if(!dismissed && isIOS && !isStandalone){
+      html = `
+        <div class="push-title">Уведомления</div>
+        <p class="push-text">На iPhone уведомления работают, только если ElvA добавлено на экран «Домой». Откройте этот сайт в Safari, нажмите «Поделиться» → «На экран Домой» и запускайте приложение с иконки.</p>
+        <div class="push-actions"><button class="btn-call" onclick="dismissPushCard()">Понятно</button></div>`;
+    } else if(!dismissed && pushSupported && swReg && Notification.permission === 'default'){
+      html = `
+        <div class="push-title">Включите уведомления</div>
+        <p class="push-text">Сообщим, когда водитель будет на месте, — даже если приложение закрыто.</p>
+        <div class="push-actions">
+          <button class="btn-primary btn-login" onclick="enablePush()">Включить</button>
+          <button class="btn-call" onclick="dismissPushCard()">Не сейчас</button>
+        </div>`;
+    }
+    el.innerHTML = html;
+    el.hidden = !html;
+  }
+
+  function dismissPushCard(){
+    try { localStorage.setItem(PUSH_DISMISS_KEY, '1'); } catch(e){}
+    refreshPushCard();
+  }
+
+  async function enablePush(){
+    // Разрешение запрашиваем сразу по нажатию — iPhone не покажет запрос,
+    // если перед ним стояло ожидание чего-то другого.
+    const perm = await Notification.requestPermission();
+    if(perm !== 'granted'){
+      refreshPushCard();
+      showBanner('Уведомления не разрешены. Включить их можно в настройках телефона.', 'notice');
+      setTimeout(() => hideBanner(true), 4000);
+      return;
+    }
+    const ok = await subscribePush(true);
+    refreshPushCard();
+    if(ok){
+      showBanner('Уведомления включены — сейчас придёт проверочное', 'notice');
+      setTimeout(() => hideBanner(true), 4000);
+    }
+  }
+
+  function urlB64ToUint8Array(b64){
+    const pad = '='.repeat((4 - b64.length % 4) % 4);
+    const raw = atob((b64 + pad).replace(/-/g, '+').replace(/_/g, '/'));
+    return Uint8Array.from(raw, c => c.charCodeAt(0));
+  }
+
+  async function subscribePush(sendTest){
+    try {
+      let sub = await swReg.pushManager.getSubscription();
+      if(!sub){
+        sub = await swReg.pushManager.subscribe({
+          userVisibleOnly: true,
+          applicationServerKey: urlB64ToUint8Array(VAPID_PUBLIC_KEY)
+        });
+      }
+      const j = sub.toJSON();
+      const { error } = await sb.rpc('save_push_subscription', {
+        p_endpoint: j.endpoint, p_p256dh: j.keys.p256dh, p_auth: j.keys.auth
+      });
+      if(error) throw error;
+      if(sendTest){
+        const { error: e2 } = await sb.functions.invoke('send-push', { body: { event: 'test' } });
+        if(e2) console.error('test push:', e2);
+      }
+      return true;
+    } catch(e){
+      console.error('subscribePush:', e);
+      showBanner('Не удалось включить уведомления: ' + (e.message || e), 'error');
+      return false;
     }
   }
 
