@@ -1,0 +1,2146 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>ElvA — такси по Олёкминску</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+  :root{
+    --night: #10142A;
+    --surface: #1A2044;
+    --surface-2: #232B58;
+    --ice: #8FE0E8;
+    --ice-dim: #5C7A8A;
+    --amber: #F2A65A;
+    --amber-dim: #8A6440;
+    --text: #EDEFF5;
+    --muted: #8089AC;
+    --success: #7FD9A6;
+    --danger: #E8737B;
+    --line: rgba(237,239,245,0.09);
+    --radius: 16px;
+  }
+
+  *{ box-sizing: border-box; }
+
+  body{
+    margin: 0;
+    min-height: 100vh;
+    background: radial-gradient(1200px 600px at 50% -10%, #1c2550 0%, var(--night) 60%);
+    font-family: 'Manrope', sans-serif;
+    color: var(--text);
+    display: flex;
+    justify-content: center;
+    padding: 32px 16px;
+  }
+
+  .app-shell{
+    width: 100%;
+    max-width: 440px;
+    background: var(--surface);
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 40px 80px -30px rgba(0,0,0,0.6), 0 0 0 1px var(--line);
+    display: flex;
+    flex-direction: column;
+    min-height: 720px;
+  }
+
+  .header{
+    position: relative;
+    padding: 24px 24px 18px;
+    overflow: hidden;
+  }
+
+  /* Мягкое затухание к низу шапки: свечение уходит в цвет экрана без резкой границы. */
+  .header::after{
+    content: '';
+    position: absolute;
+    left: 0; right: 0; bottom: 0;
+    height: 48px;
+    background: linear-gradient(to bottom, transparent, var(--surface));
+    pointer-events: none;
+  }
+
+  .aurora{
+    position: absolute;
+    inset: -40% -20% auto -20%;
+    height: 200px;
+    background:
+      radial-gradient(300px 120px at 20% 40%, rgba(143,224,232,0.28), transparent 70%),
+      radial-gradient(260px 140px at 75% 20%, rgba(242,166,90,0.16), transparent 70%),
+      radial-gradient(220px 100px at 50% 60%, rgba(127,217,166,0.14), transparent 70%);
+    filter: blur(6px);
+    animation: drift 14s ease-in-out infinite alternate;
+    pointer-events: none;
+  }
+
+  @keyframes drift{
+    from{ transform: translateX(-4%) translateY(0); }
+    to{ transform: translateX(4%) translateY(6px); }
+  }
+
+  .logo-row{ position: relative; display: flex; align-items: baseline; justify-content: space-between; }
+  .logo{
+    font-family: 'Unbounded', sans-serif;
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.02em;
+    color: var(--ice);
+  }
+  .tagline{
+    position: relative;
+    margin: 4px 0 10px;
+    font-size: 13.5px;
+    color: var(--muted);
+    text-align: right;
+  }
+
+  .switcher{
+    position: relative;
+    z-index: 1;   /* над затуханием шапки — иначе градиент ложится на кнопки */
+    z-index: 1;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    background: var(--night);
+    border-radius: 100px;
+    padding: 4px;
+    border: 1px solid var(--line);
+  }
+  .switcher button{
+    appearance: none;
+    border: none;
+    background: transparent;
+    color: var(--muted);
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 13.5px;
+    padding: 10px 0;
+    border-radius: 100px;
+    cursor: pointer;
+    transition: color 0.2s ease;
+    position: relative;
+    z-index: 1;
+  }
+  .switcher button.active{ color: var(--night); }
+  .switcher .thumb{
+    position: absolute;
+    top: 4px; bottom: 4px; left: 4px;
+    width: calc(50% - 4px);
+    background: var(--ice);
+    border-radius: 100px;
+    transition: transform 0.28s cubic-bezier(.65,0,.35,1);
+  }
+  .switcher.driver .thumb{ transform: translateX(100%); }
+
+  main{
+    flex: 1;
+    padding: 0 24px 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+  }
+
+  h1.view-title{
+    font-family: 'Unbounded', sans-serif;
+    font-size: 22px;
+    font-weight: 600;
+    margin: 0;
+    letter-spacing: -0.01em;
+  }
+  .view-sub{ margin: 8px 0 2px; color: var(--muted); font-size: 14px; line-height: 1.5; }
+  h1.order-title{ margin: 0 0 12px; }
+  h1.driver-title{ margin-bottom: 12px; }
+
+  .divider{
+    height: 2px;
+    background: var(--line);
+    margin: 6px 0 10px;
+    border: none;
+  }
+
+  label{ font-size: 12.5px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
+  .field{ margin-bottom: 14px; }
+  input, textarea{
+    width: 100%;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    color: var(--text);
+    font-family: 'Manrope', sans-serif;
+    font-size: 15px;
+    padding: 13px 14px;
+    border-radius: 12px;
+    outline: none;
+    transition: border-color 0.15s ease;
+  }
+  input::-webkit-outer-spin-button,
+  input::-webkit-inner-spin-button{
+    -webkit-appearance: none;
+    margin: 0;
+  }
+  input[type="number"]{
+    -moz-appearance: textfield;
+  }
+  input:focus, textarea:focus{ border-color: var(--ice); }
+  textarea{ resize: none; min-height: 64px; }
+
+  .input-wrap{ position: relative; }
+  .input-wrap input, .input-wrap textarea{ padding-left: 44px; }
+  .input-wrap .icon{
+    position: absolute;
+    left: 14px; top: 15px;
+    width: 18px; height: 18px;
+    color: var(--ice-dim);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 800;
+    font-size: 15px;
+  }
+  .input-wrap .icon svg{ width: 100%; height: 100%; display: block; }
+  .input-wrap:focus-within .icon{ color: var(--ice); }
+  .input-wrap.tall .icon{ top: 16px; }
+
+  .btn-primary{
+    width: 100%;
+    padding: 15px;
+    background: var(--amber);
+    color: #211405;
+    border: none;
+    border-radius: 12px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 700;
+    font-size: 15px;
+    cursor: pointer;
+    margin-top: 4px;
+    transition: filter 0.15s ease, transform 0.1s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+  }
+  .btn-primary:hover{ filter: brightness(1.08); }
+  .btn-primary:active{ transform: scale(0.98); }
+  .btn-primary:disabled{ background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
+
+  .btn-ghost{
+    width: 100%;
+    padding: 12px;
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--muted);
+    border-radius: 12px;
+    font-family: 'Manrope', sans-serif;
+    font-weight: 600;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+
+  .order-card{
+    background: var(--surface-2);
+    border-radius: var(--radius);
+    padding: 24px;
+    border: 1px solid var(--line);
+  }
+  .order-card.searching{
+    animation: searchPulse 2.2s ease-in-out infinite;
+  }
+  @keyframes searchPulse{
+    0%, 100%{ border-color: var(--line); box-shadow: 0 0 0 0 rgba(143,224,232,0); }
+    50%{ border-color: var(--ice); box-shadow: 0 0 14px -2px rgba(143,224,232,0.35); }
+  }
+  .offers-list{ margin-top: 6px; }
+  .order-route{ font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .order-route .arrow{ color: var(--ice-dim); margin: 0 6px; }
+  .order-meta{ font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .order-price{ color: var(--amber); font-weight: 700; }
+
+  .driver-info{
+    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .order-actions{
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);
+  }
+  .driver-info .name{ font-weight: 600; color: var(--text); }
+  .eta-text{ color: var(--muted); font-size: 13px; margin-top: 3px; }
+  .wait-text{ color: var(--text); line-height: 1.5; flex: 1; }
+  .wait-block{
+    margin: 10px 0 16px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+  .login-hint{ color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
+  #view-login input{ margin-bottom: 10px; }
+  #view-login h1.view-title{ margin-bottom: 16px; }
+  .btn-login{ background: var(--ice); color: #0c2126; }
+  #login-fallback-prompt{ margin-top: 16px; }
+  #login-fallback-prompt .login-hint{ margin-bottom: 6px; }
+  .callback-number{
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    padding: 12px;
+    margin: 8px 0;
+    border-radius: 10px;
+    border: 1.5px solid var(--ice-dim);
+    background: transparent;
+    color: var(--text);
+    font-size: 17px;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-align: center;
+    text-decoration: none;
+    cursor: pointer;
+  }
+  .callback-number.tapped{ border-color: var(--ice); background: rgba(143,224,232,0.08); }
+  /* Переключатель ролей на экране входа не убирается из потока, а становится
+     невидимым — иначе шапка "схлопывается", свечение в ней обрезается по
+     меньшей высоте и стык с экраном становится резким. */
+  .switcher.ghost{ visibility: hidden; }
+  .btn-exit{
+    margin-top: 14px;
+    background: var(--ice);
+    color: #0c2126;
+  }
+  .btn-call{
+    width: 100%;
+    margin-top: 10px;
+    padding: 10px;
+    background: transparent;
+    color: var(--text);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  .wait-timer{
+    flex-shrink: 0;
+    width: 56px;
+    text-align: center;
+    font-family: 'Unbounded', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 6px 0;
+  }
+  .wait-timer.expired{
+    background: var(--danger);
+    color: #fff;
+    border-color: var(--danger);
+    animation: timerPulse 1s ease-in-out infinite;
+  }
+  .wait-text.alert{ color: var(--danger); font-weight: 600; }
+  @keyframes timerPulse{
+    0%, 100%{ opacity: 1; }
+    50%{ opacity: 0.45; }
+  }
+
+  .rating-block{
+    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);
+    text-align: center;
+  }
+  .rating-badge{
+    font-size: 12.5px; color: var(--muted); font-weight: 600;
+  }
+  .rating-badge.new{ color: var(--ice-dim); }
+  .rating-label{ font-size: 13.5px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+  .snowflakes{ display: flex; justify-content: center; gap: 6px; }
+  .snowflake{
+    appearance: none; border: none; background: transparent;
+    font-size: 26px; line-height: 1; cursor: pointer;
+    color: var(--line);
+    transition: color 0.15s ease, transform 0.1s ease;
+  }
+  .snowflake:hover{ transform: scale(1.1); }
+  .snowflake.filled{ color: var(--ice); }
+  .rating-confirm{ margin-top: 20px; }
+
+  .empty-state{
+    text-align: center; padding: 40px 20px; color: var(--muted);
+  }
+  .empty-state .glyph{ font-size: 32px; margin-bottom: 10px; opacity: 0.6; }
+  .empty-state .spinner{
+    width: 30px; height: 30px;
+    margin: 0 auto 16px;
+    border: 2.5px solid rgba(143,224,232,0.16);
+    border-top-color: var(--ice);
+    border-radius: 50%;
+    animation: spin 1.8s linear infinite;
+  }
+  @keyframes spin{ to{ transform: rotate(360deg); } }
+  .empty-state p{ font-size: 14px; line-height: 1.6; margin: 0; }
+
+  .order-list{ display: flex; flex-direction: column; gap: 12px; }
+  .req-card{
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .req-top{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .req-time{ font-size: 12px; color: var(--muted); white-space: nowrap; }
+  .req-comment{ font-size: 13px; color: var(--muted); margin: 10px 0 14px; font-style: italic; }
+  .req-actions{ display: flex; gap: 8px; }
+
+  .eta-picker{ margin-top: 4px; }
+  .eta-label{ font-size: 13px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+  .eta-options{ display: flex; gap: 8px; margin-bottom: 10px; }
+  .eta-chip{
+    flex: 1; padding: 10px 0; background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px;
+    font-weight: 700; font-size: 13.5px; cursor: pointer;
+  }
+  .eta-chip:hover{ border-color: var(--ice); }
+  .eta-chip:focus, .eta-chip:focus-visible{ outline: none; border-color: var(--ice); }
+  .eta-chip.active{
+    border-color: var(--success);
+    box-shadow: inset 0 0 0 1px var(--success);
+    color: var(--text);
+  }
+  .eta-custom{ display: flex; gap: 8px; }
+  .eta-custom input{
+    flex: 1; padding: 10px 12px; font-size: 13.5px;
+  }
+  .eta-custom .btn-accept{ flex: 0 0 60px; padding: 10px 0; }
+  .btn-accept{
+    flex: 1; padding: 10px; background: var(--ice); color: #0c2126;
+    border: none; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;
+  }
+  .btn-accept:disabled{ opacity: 0.4; cursor: default; }
+  .btn-complete{
+    flex: 1; padding: 10px; background: var(--success); color: #0c2618;
+    border: none; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;
+  }
+
+  .section-label{ font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: none; margin: 4px 0 -6px; }
+
+  .price-picker{ margin-bottom: 10px; }
+  .price-picker input{ font-size: 13.5px; padding: 10px 12px; }
+  .counter-offer{ margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
+  .counter-offer .req-actions{ margin-top: 10px; }
+
+  .footer-note{
+    padding: 14px 24px 20px; text-align: center;
+    font-size: 11.5px; color: var(--muted); opacity: 0.7;
+  }
+
+  .conn-banner{
+    margin: 0 24px 14px;
+    padding: 10px 14px;
+    border-radius: 10px;
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+  .conn-banner.error{ background: rgba(232,115,123,0.12); border: 1px solid var(--danger); color: var(--text); }
+  .conn-banner.pending{ background: rgba(143,224,232,0.1); border: 1px solid var(--ice-dim); color: var(--muted); }
+  .conn-banner.notice{ background: rgba(143,224,232,0.1); border: 1px solid var(--ice-dim); color: var(--text); }
+
+  .burger-btn{
+    appearance: none;
+    background: transparent;
+    border: none;
+    padding: 6px;
+    margin-right: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    cursor: pointer;
+  }
+  .burger-btn span{
+    display: block;
+    width: 20px; height: 2px;
+    border-radius: 2px;
+    background: var(--text);
+  }
+  .burger-btn.ghost{ visibility: hidden; }
+
+  .menu-overlay{
+    position: fixed; inset: 0;
+    background: rgba(5,12,15,0.6);
+    z-index: 20;
+  }
+  .side-menu{
+    position: fixed;
+    top: 0; left: 0; bottom: 0;
+    width: 78%;
+    max-width: 320px;
+    z-index: 21;
+    background: var(--surface);
+    border-right: 1px solid var(--line);
+    padding: 28px 20px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 18px;
+    overflow-y: auto;
+  }
+  .menu-profile{ padding-bottom: 4px; }
+  .menu-name{ font-size: 19px; font-weight: 700; }
+  .menu-rating{ margin-top: 6px; font-size: 14px; color: var(--ice); }
+  .menu-role-note{ margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+  .menu-role-switch{ margin: 0; }
+  .menu-items{ display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
+  .menu-item{
+    appearance: none;
+    text-align: left;
+    background: transparent;
+    border: none;
+    color: var(--text);
+    font-size: 15px;
+    font-family: inherit;
+    padding: 13px 4px;
+    border-bottom: 1px solid var(--line);
+    cursor: pointer;
+  }
+  .menu-item-muted{ color: var(--muted); border-bottom: none; }
+
+  .history-head{ display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .history-back{
+    appearance: none; background: transparent; border: 1.5px solid var(--line);
+    color: var(--text); border-radius: 10px; padding: 6px 12px;
+    font-family: inherit; font-size: 14px; cursor: pointer;
+  }
+  .history-summary{ color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 4px; }
+  .history-day{
+    display: flex; justify-content: space-between; align-items: baseline;
+    font-weight: 700; font-size: 15px; margin: 10px 2px 2px;
+  }
+  .history-top{ display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .history-status-done{ color: var(--success); }
+  .history-status-cancelled{ color: var(--danger); }
+  .history-more{ margin-top: 4px; }
+
+  #splash{
+    position: fixed; inset: 0;
+    z-index: 100;
+    background: #03070a;
+    transition: opacity 0.6s ease;
+  }
+  #splash.leaving{ opacity: 0; pointer-events: none; }
+  #splash canvas{ position: absolute; inset: 0; width: 100%; height: 100%; }
+
+
+
+  [hidden]{ display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- Заставка. Стоит первым элементом, чтобы показаться мгновенно — до того,
+     как загрузится и выполнится основной скрипт приложения. -->
+<div id="splash" aria-hidden="true">
+  <canvas id="splash-gl"></canvas>
+  <canvas id="splash-ov"></canvas>
+</div>
+<script>
+// ---------- Заставка ----------
+// Сияние на весь экран, логотип плавно проявляется в центре. Живёт минимум 3 с
+// (1,5 с анимации + 1,5 с сцена живёт), а если приложение ещё не готово —
+// продолжает играть, пока основной скрипт не вызовет ElvaSplash.hide().
+// Нет WebGL или включено «уменьшить движение» — простой логотип на тёмном фоне.
+window.ElvaSplash = (function(){
+  const MIN_MS = 3000;
+  const ICE = '143,224,232';
+  const clamp01 = x => Math.min(Math.max(x, 0), 1);
+  const root = document.getElementById('splash');
+  const glc = document.getElementById('splash-gl');
+  const ov = document.getElementById('splash-ov');
+  const started = performance.now();
+  const minimum = new Promise(r => setTimeout(r, MIN_MS));
+  let running = true;
+
+
+const HEAD = `
+#ifdef GL_FRAGMENT_PRECISION_HIGH
+precision highp float;
+#else
+precision mediump float;
+#endif
+uniform vec2 u_res;
+uniform float u_t;
+float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
+float noise(vec2 p){
+  vec2 i = floor(p), f = fract(p);
+  vec2 u = f * f * (3.0 - 2.0 * f);
+  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
+             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
+}
+float fbm(vec2 p){
+  float v = 0.0, a = 0.5;
+  for(int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.02; a *= 0.5; }
+  return v;
+}
+float ridged(vec2 p){
+  float v = 0.0, a = 0.5;
+  for(int i = 0; i < 5; i++){ float n = 1.0 - abs(noise(p) * 2.0 - 1.0); v += a * n * n; p *= 2.1; a *= 0.5; }
+  return v;
+}
+vec3 finish(vec3 col, vec2 uv, float t){
+  col *= 1.0 - 0.38 * length((uv - 0.5) * vec2(0.9, 1.1));   // виньетка
+  col += (hash(uv * u_res + fract(t * 7.0) * 91.0) - 0.5) * 0.03; // зерно плёнки
+  return col;
+}
+`;
+
+
+
+const AUR_LIB = `
+vec3 stars(vec2 uv, float a, float t){
+  vec2 sp = uv * vec2(a, 1.0) * 150.0;
+  float sh = hash(floor(sp));
+  if(sh < 0.986) return vec3(0.0);
+  return vec3(1.0) * smoothstep(0.15, 0.0, length(fract(sp) - 0.5)) * (0.55 + 0.45 * sin(t * 5.0 + sh * 60.0)) * 0.9;
+}
+// slope — наклон занавесов, spreadK — насколько широко лучи уходят от края
+vec3 aurora(vec2 uv, float a, float t, float baseY, float slope, float both){
+  float ramp = smoothstep(0.0, 1.2, t);
+  float spread = 0.08 + 0.8 * ramp;
+  vec3 aur = vec3(0.0);
+  for(int i = 0; i < 3; i++){
+    float fi = float(i);
+    float x = uv.x * a * 1.3 + fi * 0.9;
+    float base = baseY + 0.08 * fi + (uv.x - 0.5) * slope * (fi - 1.0)
+               + 0.13 * sin(x * 0.9 + t * 0.35 + fi * 2.0)
+               + 0.06 * sin(x * 2.3 - t * 0.5 + fi)
+               + 0.07 * (fbm(vec2(x * 1.2, t * 0.2 + fi)) - 0.5);
+    float d = uv.y - base;
+    float rays = pow(fbm(vec2(x * 16.0, t * 0.7 + fi * 5.0)), 1.6);
+    float up = exp(-max(d, 0.0) * (3.6 + fi * 1.4)) * smoothstep(-0.015, 0.012, d);
+    float down = exp(-max(-d, 0.0) * (5.0 + fi * 1.4)) * smoothstep(0.015, -0.012, d);
+    float curtain = up + down * both;
+    float ign = smoothstep(spread, spread - 0.3, abs(uv.x - 0.5));
+    float breathe = 0.85 + 0.15 * sin(t * 1.3 + fi * 1.7 + x);
+    vec3 c = mix(vec3(0.12, 0.95, 0.5), vec3(0.6, 0.3, 0.95), clamp(abs(d) * 2.0, 0.0, 1.0));
+    c = mix(c, vec3(0.56, 0.88, 0.91), 0.3 * fi);
+    float edgeGlow = exp(-abs(d) * 55.0) * 0.6;
+    aur += c * (curtain * (0.3 + 1.4 * rays) + edgeGlow) * ign * breathe * (0.6 - fi * 0.13);
+  }
+  return aur * ramp;
+}
+vec3 sky(vec2 uv){ return mix(vec3(0.015, 0.045, 0.07), vec3(0.004, 0.012, 0.035), uv.y); }
+float behindLogo(vec2 uv, float a, float cy){ return exp(-pow(length((uv - vec2(0.5, cy)) * vec2(a * 1.6, 3.2)), 2.0)); }
+`;
+
+const V_FULL = `
+uniform float u_scrim;
+uniform float u_scrimSize;
+void main(){
+  vec2 uv = gl_FragCoord.xy / u_res; float a = u_res.x / u_res.y, t = u_t;
+  vec3 col = sky(uv) + stars(uv, a, t) + aurora(uv, a, t, 0.42, 0.3, 0.8);
+
+  vec2 e = (uv - vec2(0.5, 0.5)) * vec2(a, 1.0) / vec2(0.34, 0.1) / u_scrimSize;
+  col *= 1.0 - u_scrim * exp(-pow(length(e), 2.4)) * smoothstep(0.0, 1.2, t);
+  gl_FragColor = vec4(finish(col, uv, t), 1.0);
+}`;
+
+
+  // Оформление Б: ледяной логотип, за ним тёмная прорезь в сиянии.
+  const SCRIM = 0.75, SCRIM_SIZE = 1.3;
+
+  function makeGL(){
+    const gl = glc.getContext('webgl', { antialias: false });
+    if(!gl) return null;
+    const sh = (type, src) => {
+      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
+      return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
+    };
+    const vs = sh(gl.VERTEX_SHADER, 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }');
+    const fs = sh(gl.FRAGMENT_SHADER, HEAD + AUR_LIB + V_FULL);
+    if(!vs || !fs) return null;
+    const prog = gl.createProgram();
+    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
+    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
+    gl.useProgram(prog);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+    const loc = gl.getAttribLocation(prog, 'p');
+    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+    const uRes = gl.getUniformLocation(prog, 'u_res'), uT = gl.getUniformLocation(prog, 'u_t');
+    gl.uniform1f(gl.getUniformLocation(prog, 'u_scrim'), SCRIM);
+    gl.uniform1f(gl.getUniformLocation(prog, 'u_scrimSize'), SCRIM_SIZE);
+    return t => {
+      gl.viewport(0, 0, glc.width, glc.height);
+      gl.uniform2f(uRes, glc.width, glc.height);
+      gl.uniform1f(uT, t);
+      gl.drawArrays(gl.TRIANGLES, 0, 3);
+    };
+  }
+
+  const dpr = window.devicePixelRatio || 1;
+  const W = window.innerWidth, H = window.innerHeight;
+  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  glc.width = W * Math.min(dpr, 1.25);
+  glc.height = H * Math.min(dpr, 1.25);
+  ov.width = W * dpr; ov.height = H * dpr;
+  const octx = ov.getContext('2d');
+  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  const draw = reduced ? null : makeGL();
+
+  const FONT = Math.round(Math.min(H * 0.063, W * 0.16));
+  let fontReady = false;
+  (document.fonts ? document.fonts.load('600 ' + FONT + 'px Unbounded') : Promise.resolve())
+    .finally(() => { fontReady = true; });
+
+  function drawLogo(t){
+    octx.clearRect(0, 0, W, H);
+    if(!fontReady) return;
+    const k = clamp01((t - 0.4) / 1.3);
+    const fade = k * k * k * (k * (k * 6 - 15) + 10);
+    if(fade <= 0) return;
+    const breathe = t > 1.5 ? 1 + 0.3 * Math.sin((t - 1.5) * 4) : 1;
+    octx.save();
+    octx.translate(W / 2, H / 2);
+    octx.globalAlpha = fade;
+    octx.font = '600 ' + FONT + 'px Unbounded, sans-serif';
+    octx.textAlign = 'center'; octx.textBaseline = 'middle';
+    octx.shadowColor = 'rgba(' + ICE + ',0.85)';
+    octx.shadowBlur = FONT * 0.53 * (draw ? breathe : 1);
+    octx.fillStyle = 'rgb(' + ICE + ')';
+    octx.fillText('ElvA', 0, 0);
+    octx.shadowBlur = 0;
+    const sk = (t - 1.8) / 0.6;
+    if(draw && sk > 0 && sk < 1){
+      const span = FONT * 2.1, sx = -span + 2 * span * sk;
+      const g = octx.createLinearGradient(sx - FONT * 0.6, 0, sx + FONT * 0.6, 0);
+      g.addColorStop(0, 'rgba(255,255,255,0)');
+      g.addColorStop(0.5, 'rgba(255,255,255,0.95)');
+      g.addColorStop(1, 'rgba(255,255,255,0)');
+      octx.fillStyle = g; octx.fillText('ElvA', 0, 0);
+    }
+    octx.restore();
+  }
+
+  (function frame(now){
+    if(!running) return;
+    const t = (now - started) / 1000;
+    if(draw) draw(t);
+    drawLogo(t);
+    requestAnimationFrame(frame);
+  })(performance.now());
+
+  const api = {
+    minimum,
+    hide(){
+      if(!root || root.classList.contains('leaving')) return;
+      root.classList.add('leaving');
+      setTimeout(() => { running = false; root.remove(); }, 650);
+    }
+  };
+  setTimeout(() => api.hide(), 10000);
+  return api;
+})();
+</script>
+
+
+<div class="app-shell">
+  <div class="header">
+    <div class="aurora"></div>
+    <div class="logo-row">
+      <button class="burger-btn ghost" id="burger-btn" onclick="openMenu()" aria-label="Меню">
+        <span></span><span></span><span></span>
+      </button>
+      <div class="logo">ElvA</div>
+    </div>
+    <div class="tagline">Такси по Олёкминску</div>
+  </div>
+
+  <!-- Боковое меню. Роль переехала сюда: рейтинг у водителя и пассажира —
+       разные числа, и показывать его имеет смысл рядом с той ролью, в которой
+       человек сейчас находится. -->
+  <div class="menu-overlay" id="menu-overlay" hidden onclick="closeMenu()"></div>
+  <nav class="side-menu" id="side-menu" hidden>
+    <div class="menu-profile">
+      <div class="menu-name" id="menu-name">—</div>
+      <div class="menu-rating" id="menu-rating"></div>
+      <div class="menu-role-note" id="menu-role-note"></div>
+    </div>
+
+    <button class="btn-primary btn-login menu-role-switch" id="menu-role-switch" onclick="switchRoleFromMenu()">—</button>
+
+    <div class="menu-items">
+      <button class="menu-item" onclick="openHistory()">История заказов</button>
+      <button class="menu-item" onclick="menuSoon('Помощь')">Помощь</button>
+      <button class="menu-item menu-item-muted" onclick="logoutFromMenu()">Выйти</button>
+    </div>
+  </nav>
+
+  <div id="conn-banner" class="conn-banner" hidden></div>
+
+  <main>
+    <section id="view-login" hidden>
+      <h1 class="view-title">Вход</h1>
+      <div class="order-card">
+        <div id="login-step-phone">
+          <p class="login-hint">Введите ваш номер телефона — на него придёт подтверждение</p>
+          <input id="login-phone" type="tel" inputmode="tel" placeholder="+7 ___ ___-__-__" autocomplete="tel" oninput="onPhoneInput(this)">
+          <button class="btn-primary btn-login" onclick="loginStart()">Продолжить</button>
+        </div>
+
+        <div id="login-step-code" hidden>
+          <p class="login-hint">Вам поступит вызов. Не отвечайте — просто введите последние 4 цифры номера.</p>
+          <input id="login-code" type="tel" inputmode="numeric" maxlength="4" placeholder="0000">
+          <button class="btn-primary btn-login" onclick="loginConfirm()">Подтвердить</button>
+          <div id="login-fallback-prompt" hidden>
+            <p class="login-hint">Если звонка так и не было — нажмите кнопку «Звонок не пришёл»</p>
+            <button class="btn-call" onclick="loginFallbackStart()">Звонок не пришёл</button>
+          </div>
+        </div>
+
+        <div id="login-step-fallback" hidden>
+          <p class="login-hint" id="login-fallback-hint">Позвоните на один из номеров, чтобы подтвердить телефон</p>
+          <div id="login-callback-numbers"></div>
+          <button class="btn-primary btn-login" id="login-fallback-confirm-btn" onclick="loginFallbackCheck()" hidden>Я позвонил</button>
+        </div>
+
+        <div id="login-step-name" hidden>
+          <p class="login-hint">Как вас зовут? Имя увидит вторая сторона поездки.</p>
+          <input id="login-name" type="text" placeholder="Имя" autocomplete="given-name">
+          <button class="btn-primary btn-login" onclick="loginSaveName()">Готово</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="view-passenger" hidden></section>
+    <section id="view-driver" hidden></section>
+    <section id="view-history" hidden></section>
+  </main>
+
+  <div class="footer-note">Демо-прототип · данные не сохраняются между сессиями</div>
+</div>
+
+<script>
+  // ---------- Supabase config ----------
+  // Вставьте сюда свои значения из Settings → API вашего проекта Supabase.
+  const SUPABASE_URL = 'https://uoqaaemktxcumcsdmhpj.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_58ozWUWGOSBIC6A0CUMQjw_ZBkPKXss';
+
+  // Библиотека Supabase грузится с CDN — при плохой связи её может не оказаться.
+  // Тогда не падаем целиком, а показываем понятное сообщение.
+  const supabaseLoaded = !!(window.supabase && window.supabase.createClient);
+  const isConfigured = supabaseLoaded && !SUPABASE_URL.includes('ВАШ') && !SUPABASE_ANON_KEY.includes('ВАШ');
+  const sb = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
+
+  function showBanner(text, type){
+    const el = document.getElementById('conn-banner');
+    el.textContent = text;
+    el.className = 'conn-banner ' + type;
+    el.dataset.type = type;
+    el.hidden = false;
+  }
+  function hideBanner(force){
+    const el = document.getElementById('conn-banner');
+    // notice-баннер не гасим попутно, когда фоновое обновление данных (например,
+    // realtime от чужого действия) само вызывает hideBanner() — иначе человек
+    // не успевает прочитать сообщение. Гасится только своим таймером или явно.
+    if(!force && el.dataset.type === 'notice') return;
+    el.hidden = true;
+  }
+
+  // ---------- state ----------
+  let orders = []; // локальный кэш, синхронизируется с таблицей orders в Supabase
+  let offers = []; // локальный кэш всех активных предложений водителей (order_offers)
+  let currentView = 'passenger';
+  let driverName = ''; // заполняется из профиля при загрузке (loadMyProfile)
+  let etaSelectingId = null;
+  let etaPriceDrafts = {};    // order_id -> строка цены, которую сейчас печатает водитель (переживает перерендер)
+  let etaSelectedMinutes = {}; // order_id -> выбранное время подачи (кнопка или свой вариант), до нажатия ОК
+  let ratingDrafts = {};      // order_id -> выбранная (но ещё не отправленная) оценка
+  // Какая фаза ожидания (active/grace/overdue) сейчас отрисована в каждом из экранов.
+  // Нужна, чтобы раз в секунду понимать: достаточно обновить текст таймера или
+  // структура блока действительно изменилась и нужен полноценный рендер.
+  let renderedWaitPhase = { passenger: {}, driver: {} };
+  const OFFER_TIMEOUT_MS = 3 * 60000; // предложение водителя "сгорает" через 3 минуты без ответа
+
+  // Личность больше не строка, придуманная в браузере (её раньше мог подделать
+  // кто угодно из консоли) — это настоящая анонимная сессия Supabase Auth.
+  // auth.uid() из этой сессии сервер проверяет сам во всех RPC-функциях и в RLS,
+  // поэтому запрос "от чужого имени" отправить с фронтенда больше нельзя.
+  // passengerId и driverId сознательно совпадают: в реальном использовании это
+  // один и тот же человек с одного устройства. Проверить оба сценария в одном
+  // браузере теперь можно только в двух разных профилях/окне-инкогнито —
+  // что честнее отражает реальность (пассажир и водитель — разные устройства).
+  // Сессия Supabase Auth — это конкретный браузер. Личность человека (profile_id)
+  // живёт отдельно на сервере и определяется подтверждённым номером телефона.
+  // passengerId/driverId — это и есть profile_id: один и тот же человек может
+  // быть и пассажиром, и водителем, а при входе с нового устройства получает
+  // свою прежнюю историю и рейтинг.
+  let passengerId = null;
+  let driverId = null;
+  let myProfile = null; // { profile_id, phone, name } или null, если не зарегистрирован
+
+  async function ensureAuthSession(){
+    const { data: { session } } = await sb.auth.getSession();
+    if(session) return session.user.id;
+    const { data, error } = await sb.auth.signInAnonymously();
+    if(error) throw error;
+    return data.session.user.id;
+  }
+
+  // Спрашиваем сервер, кто мы. Пустой ответ = номер не подтверждён.
+  async function loadMyProfile(){
+    const { data, error } = await sb.rpc('my_profile');
+    if(error){ console.error('my_profile failed:', error.message); return null; }
+    const row = Array.isArray(data) ? data[0] : data;
+    if(!row) return null;
+    myProfile = { profileId: row.profile_id, phone: row.phone, name: row.name };
+    passengerId = row.profile_id;
+    driverId = row.profile_id;
+    driverName = row.name || '';
+    return myProfile;
+  }
+
+  // Накопленные рейтинги водителей и пассажиров: { [id]: { sum, count } }
+  let driverProfiles = {};
+  let passengerProfiles = {};
+
+  function ratingBadge(profile){
+    if(!profile || !profile.count){
+      return `<span class="rating-badge new">новый</span>`;
+    }
+    const avg = (profile.sum / profile.count).toFixed(1);
+    return `<span class="rating-badge">❄ ${avg} · ${profile.count}</span>`;
+  }
+
+  // Строка из Supabase (snake_case) -> объект заказа, с которым работает остальной код
+  function rowToOrder(row){
+    return {
+      id: row.id,
+      passengerId: row.passenger_id,
+      from: row.from_address,
+      to: row.to_address,
+      price: row.price,
+      comment: row.comment,
+      status: row.status,
+      time: row.time,
+      driverName: row.driver_name,
+      driverId: row.driver_id,
+      eta: row.eta,
+      acceptedAt: row.accepted_at,
+      arrivedAt: row.arrived_at,
+      tripStartedAt: row.trip_started_at,
+      exiting: row.exiting,
+      rating: row.rating,
+      driverRating: row.driver_rating,
+      completedAt: row.completed_at,
+      cancelledAt: row.cancelled_at,
+      createdAt: row.created_at
+    };
+  }
+
+  // Строка предложения водителя (order_offers) -> объект, с которым работает UI
+  function rowToOffer(row){
+    return {
+      id: row.id,
+      orderId: row.order_id,
+      driverId: row.driver_id,
+      driverName: row.driver_name,
+      price: row.price,
+      eta: row.eta,
+      createdAt: Date.parse(row.created_at)
+    };
+  }
+
+  async function fetchOrders(){
+    try {
+      // Завершённые заказы теперь остаются в базе навсегда (это архив), поэтому
+      // грузить их все на каждый рефреш нельзя — список будет только расти.
+      // Здесь берём только живые заказы и недавно завершённые: последние ещё
+      // нужны для экрана оценки и кнопки "забыли что-то — позвонить".
+      const recentCutoff = Date.now() - 2 * 60 * 60 * 1000;
+      const { data, error } = await sb.from('orders')
+        .select('*')
+        .neq('status', 'cancelled')
+        .or(`status.neq.done,completed_at.gte.${recentCutoff}`)
+        .order('id', { ascending: true });
+      if(error){
+        showBanner('Не удалось получить заказы: ' + error.message, 'error');
+        renderPassenger();
+        renderDriver();
+        return;
+      }
+      orders = data.map(rowToOrder);
+      hideBanner();
+      renderPassenger();
+      renderDriver();
+    } catch(e){
+      showBanner('Ошибка соединения с Supabase: ' + e.message, 'error');
+      renderPassenger();
+      renderDriver();
+    }
+  }
+
+  async function fetchOffers(){
+    try {
+      const { data, error } = await sb.from('order_offers').select('*').order('created_at', { ascending: true });
+      if(error){
+        console.error('Не удалось получить предложения:', error.message);
+        return;
+      }
+      offers = data.map(rowToOffer);
+      renderPassenger();
+      renderDriver();
+    } catch(e){
+      console.error('Ошибка загрузки предложений:', e.message);
+    }
+  }
+
+  async function fetchProfiles(){
+    try {
+      const [drv, pax] = await Promise.all([
+        sb.from('driver_profiles').select('*'),
+        sb.from('passenger_profiles').select('*')
+      ]);
+      if(!drv.error){
+        driverProfiles = {};
+        drv.data.forEach(r => { driverProfiles[r.driver_id] = { sum: r.rating_sum, count: r.rating_count }; });
+      }
+      if(!pax.error){
+        passengerProfiles = {};
+        pax.data.forEach(r => { passengerProfiles[r.passenger_id] = { sum: r.rating_sum, count: r.rating_count }; });
+      }
+      renderPassenger();
+      renderDriver();
+    } catch(e){
+      console.error('Не удалось загрузить рейтинги:', e);
+    }
+  }
+
+  function subscribeRealtime(){
+    sb
+      .channel('orders-sync')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
+        fetchOrders();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'order_offers' }, () => {
+        fetchOffers();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'driver_profiles' }, () => {
+        fetchProfiles();
+      })
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'passenger_profiles' }, () => {
+        fetchProfiles();
+      })
+      .subscribe();
+  }
+
+  // Запуск: пока играет заставка, в фоне проверяем сессию и номер и готовим
+  // нужный экран. Заставка уходит, когда выполнено и то, и другое: прошли
+  // её 3 секунды и приложение уже знает, что показать.
+  async function init(){
+    try {
+      await routeAfterLaunch();
+    } finally {
+      if(window.ElvaSplash){
+        await window.ElvaSplash.minimum;
+        window.ElvaSplash.hide();
+      }
+    }
+  }
+
+  async function routeAfterLaunch(){
+    if(!supabaseLoaded){
+      showBanner('Нет связи с сервером. Проверьте интернет и откройте приложение заново.', 'error');
+      return;
+    }
+    if(!isConfigured){
+      showBanner('Supabase не настроен — вставьте SUPABASE_URL и SUPABASE_ANON_KEY в начале <script>. Пока показан пустой экран без синхронизации.', 'pending');
+      renderPassenger();
+      renderDriver();
+      return;
+    }
+    try {
+      await ensureAuthSession();
+    } catch(e){
+      showBanner('Не удалось создать сессию: ' + e.message, 'error');
+      return;
+    }
+
+    await loadMyProfile();
+    if(!myProfile){
+      showLogin();   // номер не подтверждён — дальше экрана входа не пускаем
+      return;
+    }
+    if(!myProfile.name){
+      showLogin('name');  // номер есть, имени ещё нет
+      return;
+    }
+    await startApp();
+  }
+
+  // Всё, что раньше делалось сразу при загрузке, теперь запускается только
+  // после успешной регистрации.
+  async function startApp(){
+    document.getElementById('view-login').hidden = true;
+    document.getElementById('burger-btn').classList.remove('ghost');
+    switchView(currentView);
+    await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles()]);
+    try {
+      subscribeRealtime();
+    } catch(e){
+      console.error('Realtime subscribe failed:', e);
+    }
+  }
+
+  // ---------- вход по номеру ----------
+  function showLogin(step){
+    document.getElementById('view-login').hidden = false;
+    document.getElementById('view-passenger').hidden = true;
+    document.getElementById('view-driver').hidden = true;
+    document.getElementById('burger-btn').classList.add('ghost');
+    loginStep(step || 'phone');
+  }
+
+  let fallbackPromptTimer = null;
+
+  function loginStep(step){
+    ['phone', 'code', 'fallback', 'name'].forEach(s => {
+      document.getElementById('login-step-' + s).hidden = (s !== step);
+    });
+    clearTimeout(fallbackPromptTimer);
+    document.getElementById('login-fallback-prompt').hidden = true;
+    if(step === 'code'){
+      // Подсказка про "звонок не пришёл" появляется вместе с кнопкой только
+      // спустя 15 секунд — раньше её показывать смысла нет, звонок ещё в пути.
+      fallbackPromptTimer = setTimeout(() => {
+        document.getElementById('login-fallback-prompt').hidden = false;
+      }, 15000);
+    }
+  }
+
+  function loginPhone(){
+    return document.getElementById('login-phone').value.trim().replace(/[^\d+]/g, '');
+  }
+
+  // Человек вводит только цифры — +7, пробелы и тире расставляются сами.
+  // Ведущие 8 или 7 отбрасываются, поэтому 8932..., +7932... и 932... дают
+  // один и тот же результат. Российские мобильные начинаются на 9, городские
+  // Олёкминска — на 4, так что отбрасывание первой 8/7 ничей номер не портит.
+  function onPhoneInput(el){
+    let digits = el.value.replace(/\D/g, '');
+    if(digits.startsWith('8') || digits.startsWith('7')) digits = digits.slice(1);
+    digits = digits.slice(0, 10);
+    if(!digits){ el.value = ''; return; }
+
+    let out = '+7 ' + digits.slice(0, 3);
+    if(digits.length > 3) out += ' ' + digits.slice(3, 6);
+    if(digits.length > 6) out += '-' + digits.slice(6, 8);
+    if(digits.length > 8) out += '-' + digits.slice(8, 10);
+    el.value = out;
+  }
+
+  // Общий вызов Edge Function. supabase-js на не-2xx отдаёт общую фразу,
+  // а настоящая причина лежит в теле ответа — достаём её, иначе отлаживать вслепую.
+  async function callVerify(action, extra){
+    const { data, error } = await sb.functions.invoke('verify-phone', {
+      body: Object.assign({ action, phone: loginPhone() }, extra || {})
+    });
+    if(error){
+      let details = error.message;
+      try {
+        if(error.context && typeof error.context.json === 'function'){
+          const body = await error.context.json();
+          details = body?.error || details;
+        }
+      } catch(_e){ /* тело не JSON */ }
+      throw new Error(details);
+    }
+    return data;
+  }
+
+  async function loginStart(){
+    const phone = loginPhone();
+    if(phone.length < 11){
+      showBanner('Введите номер полностью, вместе с кодом страны', 'notice');
+      setTimeout(() => hideBanner(true), 3000);
+      return;
+    }
+    showBanner('Звоним...', 'pending');
+    try {
+      await callVerify('start');
+      hideBanner(true);
+      loginStep('code');
+      document.getElementById('login-code').focus();
+    } catch(e){
+      showBanner('Не получилось позвонить: ' + e.message, 'error');
+    }
+  }
+
+  async function loginConfirm(){
+    const code = document.getElementById('login-code').value.trim();
+    if(!code){ return; }
+    showBanner('Проверяем код...', 'pending');
+    try {
+      await callVerify('confirm', { code });
+      hideBanner(true);
+      await afterVerified();
+    } catch(e){
+      showBanner(e.message, 'error');
+    }
+  }
+
+  async function loginFallbackStart(){
+    showBanner('Запрашиваем номер...', 'pending');
+    try {
+      const res = await callVerify('start_fallback');
+      hideBanner(true);
+      document.getElementById('login-fallback-hint').textContent = 'Позвоните на один из номеров, чтобы подтвердить телефон';
+      document.getElementById('login-fallback-confirm-btn').hidden = true;
+      const numbers = Array.isArray(res.callback_number) ? res.callback_number : [res.callback_number].filter(Boolean);
+      renderCallbackNumbers(numbers);
+      loginStep('fallback');
+    } catch(e){
+      showBanner('Не получилось: ' + e.message, 'error');
+    }
+  }
+
+  // Номера кликабельные — на телефоне tel:-ссылка сразу открывает набор,
+  // на компьютере такая ссылка обычно ничего не делает, поэтому там же
+  // копируем номер в буфер, чтобы было что вставить самому. Кнопка "Я позвонил"
+  // раньше была всегда доступна и её могли нажать просто от нетерпения,
+  // ничего не сделав — теперь она появляется только после клика по номеру.
+  function renderCallbackNumbers(numbers){
+    const box = document.getElementById('login-callback-numbers');
+    if(!numbers.length){
+      box.innerHTML = '<p class="login-hint">Номер не получен — попробуйте ещё раз через минуту</p>';
+      return;
+    }
+    box.innerHTML = numbers.map(n => `
+      <a class="callback-number" href="tel:${n}" onclick="onCallbackNumberTap(this)">${n}</a>
+    `).join('');
+  }
+
+  function onCallbackNumberTap(el){
+    document.querySelectorAll('.callback-number').forEach(n => n.classList.remove('tapped'));
+    el.classList.add('tapped');
+    document.getElementById('login-fallback-hint').textContent = 'Позвонили? Нажмите «Я позвонил»';
+    document.getElementById('login-fallback-confirm-btn').hidden = false;
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(el.textContent.trim()).catch(() => {});
+    }
+  }
+
+  async function loginFallbackCheck(){
+    showBanner('Проверяем...', 'pending');
+    try {
+      const res = await callVerify('check_fallback');
+      if(res.ok){
+        hideBanner(true);
+        await afterVerified();
+      } else {
+        showBanner('Звонок пока не виден — подождите пару секунд и нажмите ещё раз', 'notice');
+        setTimeout(() => hideBanner(true), 4000);
+      }
+    } catch(e){
+      showBanner(e.message, 'error');
+    }
+  }
+
+  // Номер подтверждён: либо просим имя (новый пользователь), либо сразу в приложение
+  // (вернувшийся — имя уже лежит в его профиле).
+  async function afterVerified(){
+    await loadMyProfile();
+    if(!myProfile){
+      showBanner('Номер подтверждён, но профиль не найден — попробуйте перезагрузить страницу', 'error');
+      return;
+    }
+    if(!myProfile.name){
+      loginStep('name');
+      document.getElementById('login-name').focus();
+      return;
+    }
+    await startApp();
+  }
+
+  async function loginSaveName(){
+    const name = document.getElementById('login-name').value.trim();
+    if(!name){ return; }
+    const { error } = await sb.rpc('set_my_name', { p_name: name });
+    if(error){ showBanner('Не удалось сохранить имя: ' + error.message, 'error'); return; }
+    myProfile.name = name;
+    driverName = name;
+    await startApp();
+  }
+
+  function timeNow(){
+    const d = new Date();
+    return d.getHours().toString().padStart(2,'0') + ':' + d.getMinutes().toString().padStart(2,'0');
+  }
+
+  function formatWait(arrivedAt){
+    const elapsed = Math.floor((Date.now() - arrivedAt) / 1000);
+    const remaining = Math.max(0, 180 - elapsed);
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    return m + ':' + s.toString().padStart(2, '0');
+  }
+
+  function esc(str){
+    const div = document.createElement('div');
+    div.textContent = str == null ? '' : String(str);
+    return div.innerHTML;
+  }
+
+  function formatEtaCountdown(order){
+    if(order.acceptedAt == null || order.eta == null) return null;
+    const totalMs = order.eta * 60000;
+    const remaining = Math.max(0, Math.ceil((order.acceptedAt + totalMs - Date.now()) / 1000));
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    return { text: m + ':' + s.toString().padStart(2, '0'), expired: remaining <= 0 };
+  }
+
+  function formatOfferCountdown(offer){
+    const remaining = Math.max(0, Math.ceil((offer.createdAt + OFFER_TIMEOUT_MS - Date.now()) / 1000));
+    const m = Math.floor(remaining / 60);
+    const s = remaining % 60;
+    return { text: m + ':' + s.toString().padStart(2, '0'), expired: remaining <= 0 };
+  }
+
+  function passengerHeadline(order){
+    if(order.status === 'searching'){
+      const n = offers.filter(of => of.orderId === order.id).length;
+      return n > 0 ? `Предложений от водителей: ${n}` : 'Ищем водителей';
+    }
+    if(order.status === 'accepted'){
+      const c = formatEtaCountdown(order);
+      const name = esc(order.driverName);
+      if(!c) return 'Водитель ' + name + ' прибудет через ' + esc(order.eta) + ' мин';
+      if(c.expired) return 'Водитель ' + name + ' вот-вот будет на месте';
+      return 'Водитель ' + name + ' прибудет через <span data-tick="eta" data-order-id="' + order.id + '">' + c.text + '</span>';
+    }
+    if(order.status === 'arrived') return 'Водитель подъехал';
+    if(order.status === 'in_progress') return 'Поездка началась';
+    if(order.status === 'done') return 'Поездка завершена';
+    return 'Ваш заказ';
+  }
+
+  function driverEtaLine(o){
+    const c = formatEtaCountdown(o);
+    if(!c) return 'Обещали доехать через ' + esc(o.eta) + ' мин';
+    if(c.expired) return 'Время, которое вы называли, вышло';
+    return 'Обещали доехать: <span data-tick="eta" data-order-id="' + o.id + '">' + c.text + '</span>';
+  }
+
+  // Unified waiting deadline: 0-3 min visible countdown, 3-5 min quiet grace,
+  // 5+ min overdue alert to both sides — independent of whether passenger clicked "Выхожу".
+  function waitPhase(arrivedAt){
+    const elapsed = Date.now() - arrivedAt;
+    if(elapsed < 180000) return 'active';
+    if(elapsed < 300000) return 'grace';
+    return 'overdue';
+  }
+
+  function passengerWaitBlock(order){
+    const phase = waitPhase(order.arrivedAt);
+    renderedWaitPhase.passenger[order.id] = phase;
+    if(order.exiting){
+      if(phase === 'overdue'){
+        return `
+          <div class="wait-text alert">Похоже, вы задерживаетесь — сообщите водителю, если нужна ещё пара минут.</div>
+          <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
+        `;
+      }
+      return `<div class="wait-text">Вы сообщили водителю, что выходите.</div>`;
+    }
+    if(phase === 'overdue'){
+      return `
+        <div class="wait-text alert">Похоже, вы задерживаетесь — сообщите водителю, если нужна ещё пара минут.</div>
+        <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
+        <button class="btn-primary btn-exit" onclick="exitPassenger(${order.id})">Выхожу</button>
+      `;
+    }
+    if(phase === 'active'){
+      return `
+        <div class="wait-block">
+          <div class="wait-text">${esc(order.driverName)} ждёт вас, бесплатное ожидание 3 минуты</div>
+          <div class="wait-timer" data-tick="wait" data-order-id="${order.id}">${formatWait(order.arrivedAt)}</div>
+        </div>
+        <button class="btn-primary btn-exit" onclick="exitPassenger(${order.id})">Выхожу</button>
+      `;
+    }
+    // grace: 3-5 min, not exiting yet — no scary countdown, just a calm nudge
+    return `
+      <div class="wait-text">${esc(order.driverName)} ждёт вас</div>
+      <button class="btn-primary btn-exit" onclick="exitPassenger(${order.id})">Выхожу</button>
+    `;
+  }
+
+  function driverWaitBlock(o){
+    const phase = waitPhase(o.arrivedAt);
+    renderedWaitPhase.driver[o.id] = phase;
+    if(phase === 'overdue'){
+      return `<div class="wait-text alert">Пассажир задерживается — возможно, стоит позвонить</div>`;
+    }
+    if(o.exiting){
+      return `<div class="wait-text">Пассажир выходит</div>`;
+    }
+    if(phase === 'active'){
+      return `
+        <div class="wait-block">
+          <div class="wait-text">Ожидание пассажира</div>
+          <div class="wait-timer" data-tick="wait" data-order-id="${o.id}">${formatWait(o.arrivedAt)}</div>
+        </div>
+      `;
+    }
+    // grace: 3-5 min, passenger hasn't signaled yet — quiet, no countdown
+    return `<div class="wait-text">Ожидание пассажира</div>`;
+  }
+
+  function passengerOffersList(order){
+    const list = offers.filter(of => of.orderId === order.id)
+      .slice()
+      .sort((a, b) => (Number(a.price) - Number(b.price)) || (a.eta - b.eta));
+    if(!list.length) return '';
+    return `
+      <div class="order-list offers-list">
+        ${list.map(of => `
+          <div class="req-card">
+            <div class="order-meta">${esc(of.driverName)} ${ratingBadge(driverProfiles[of.driverId])}</div>
+            <div class="order-meta"><span class="order-price">${esc(of.price)} ₽</span> · подача через ${esc(of.eta)} мин</div>
+            <div class="req-actions">
+              <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
+            </div>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  function driverOfferBlock(order, offer){
+    const c = formatOfferCountdown(offer);
+    return `
+      <div class="wait-text">Предложили ${esc(offer.price)} ₽ · подача через ${esc(offer.eta)} мин</div>
+      <div class="wait-block">
+        <div class="wait-text">Ждём выбор пассажира</div>
+        <div class="wait-timer" data-tick="offer" data-offer-id="${offer.id}">${c.text}</div>
+      </div>
+      <div class="req-actions">
+        <button class="btn-ghost" onclick="withdrawOffer(${order.id})">Отозвать предложение</button>
+      </div>
+    `;
+  }
+
+  // ---------- ежесекундное обновление таймеров ----------
+  // Ничего не перерисовываем целиком: находим только те текстовые узлы, где идёт
+  // отсчёт, и меняем в них textContent. Полный рендер вызывается лишь тогда,
+  // когда меняется сама структура блока (отсчёт дошёл до нуля, сменилась фаза
+  // ожидания) — то есть максимум один раз на переход, а не каждую секунду.
+  function tickTimers(){
+    let structuralPassenger = false;
+    let structuralDriver = false;
+    const driverRoot = document.getElementById('view-driver');
+
+    document.querySelectorAll('[data-tick]').forEach(el => {
+      const inDriver = driverRoot.contains(el);
+      const kind = el.getAttribute('data-tick');
+
+      if(kind === 'eta'){
+        const order = orders.find(o => o.id === Number(el.dataset.orderId));
+        if(!order) return;
+        const c = formatEtaCountdown(order);
+        if(!c) return;
+        if(c.expired){
+          // текст вокруг отсчёта меняется целиком — тут нужен настоящий рендер
+          if(inDriver) structuralDriver = true; else structuralPassenger = true;
+          return;
+        }
+        if(el.textContent !== c.text) el.textContent = c.text;
+        return;
+      }
+
+      if(kind === 'wait'){
+        const order = orders.find(o => o.id === Number(el.dataset.orderId));
+        if(!order || order.arrivedAt == null) return;
+        const text = formatWait(order.arrivedAt);
+        if(el.textContent !== text) el.textContent = text;
+        return;
+      }
+
+      if(kind === 'offer'){
+        const offer = offers.find(of => of.id === Number(el.dataset.offerId));
+        if(!offer) return;
+        const c = formatOfferCountdown(offer);
+        if(el.textContent !== c.text) el.textContent = c.text;
+        el.classList.toggle('expired', c.expired);
+      }
+    });
+
+    // Переходы фаз ожидания (3 мин / 5 мин) меняют состав блока, причём в фазах
+    // grace/overdue таймера на экране уже нет — поэтому сверяем по состоянию, а не по DOM.
+    orders.forEach(o => {
+      if(o.status !== 'arrived' || o.arrivedAt == null) return;
+      const phase = waitPhase(o.arrivedAt);
+      if(renderedWaitPhase.passenger[o.id] && renderedWaitPhase.passenger[o.id] !== phase) structuralPassenger = true;
+      if(renderedWaitPhase.driver[o.id] && renderedWaitPhase.driver[o.id] !== phase) structuralDriver = true;
+    });
+
+    if(structuralPassenger) renderPassenger();
+    if(structuralDriver) renderDriver();
+  }
+
+  // ---------- passenger view ----------
+  function activePassengerOrder(){
+    // Завершённый и уже оценённый заказ пассажира с экрана убираем, но строку в базе
+    // не трогаем: она ещё нужна водителю, чтобы он успел поставить свою оценку.
+    return orders.find(o => o.passengerId === passengerId && !(o.status === 'done' && o.rating != null));
+  }
+
+  function renderPassenger(){
+    const el = document.getElementById('view-passenger');
+    renderedWaitPhase.passenger = {};
+    const active = activePassengerOrder();
+
+    if(!active){
+      setHtml(el, `
+        <h1 class="view-title">Куда едем?</h1>
+        <p class="view-sub">Укажите адреса и предложите цену — водители увидят ваш заказ</p>
+        <hr class="divider">
+        <div class="field">
+          <label>Откуда</label>
+          <div class="input-wrap">
+            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-7.58 7-12A7 7 0 0 0 5 9c0 4.42 7 12 7 12Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="9" r="2.3" stroke="currentColor" stroke-width="1.6"/></svg></span>
+            <input id="f-from" type="text" placeholder="ул. Ленина, 10">
+          </div>
+        </div>
+        <div class="field">
+          <label>Куда</label>
+          <div class="input-wrap">
+            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 3v18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M5 4.2c2-1 4-1 6 0s4 1 6 0v7.6c-2 1-4 1-6 0s-4-1-6 0V4.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+            <input id="f-to" type="text" placeholder="Аэропорт">
+          </div>
+        </div>
+        <div class="field">
+          <label>Сколько готовы заплатить</label>
+          <div class="input-wrap">
+            <span class="icon">₽</span>
+            <input id="f-price" type="number" inputmode="numeric" min="0" placeholder="150">
+          </div>
+        </div>
+        <div class="field">
+          <label>Комментарий (необязательно)</label>
+          <div class="input-wrap tall">
+            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
+            <textarea id="f-comment" placeholder="две сумки, подъезд со двора"></textarea>
+          </div>
+        </div>
+        <button class="btn-primary" onclick="submitOrder()">Заказать такси</button>
+      `);
+      return;
+    }
+
+    const order = active;
+
+    setHtml(el, `
+      <h1 class="view-title order-title">${passengerHeadline(order)}</h1>
+      <div class="order-card${order.status === 'searching' ? ' searching' : ''}">
+        <div class="order-route">${esc(order.from)}<span class="arrow">→</span>${esc(order.to)}</div>
+        <div class="order-meta">Заказ №${order.id} · ${esc(order.time)} · <span class="order-price">${esc(order.price)} ₽</span></div>
+        ${order.driverName ? `<div class="order-meta">${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</div>` : ''}
+        ${order.status === 'searching' ? passengerOffersList(order) : ''}
+        ${order.status === 'accepted' || order.status === 'arrived' ? `
+          <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
+        ` : ''}
+        ${order.status === 'arrived' ? `
+          <div class="driver-info">
+            ${passengerWaitBlock(order)}
+          </div>
+        ` : ''}
+        ${order.status === 'searching' ? `
+          <div class="order-actions">
+            <button class="btn-ghost" onclick="cancelOrder(${order.id})">Отменить заказ</button>
+          </div>
+        ` : ''}
+        ${order.status === 'done' ? `
+          <div class="rating-block">
+            <div class="rating-label">${order.rating ? 'Спасибо за оценку!' : 'Как прошла поездка?'}</div>
+            <div class="snowflakes">
+              ${[1,2,3,4,5].map(n => `
+                <button class="snowflake ${(order.rating || ratingDrafts[order.id]) && n <= (order.rating || ratingDrafts[order.id]) ? 'filled' : ''}" ${order.rating ? 'disabled' : `onclick="selectOrderRating(${order.id}, ${n})"`}>❄</button>
+              `).join('')}
+            </div>
+            ${!order.rating ? `<button class="btn-accept rating-confirm" onclick="confirmRateOrder(${order.id})" ${!ratingDrafts[order.id] ? 'disabled' : ''}>Оценить</button>` : ''}
+          </div>
+        ` : ''}
+      </div>
+    `);
+  }
+
+  function exitPassenger(id){
+    sb.rpc('exit_passenger', { p_order_id: id })
+      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  function selectOrderRating(id, value){
+    ratingDrafts[id] = value;
+    renderPassenger();
+  }
+
+  async function confirmRateOrder(id){
+    const value = ratingDrafts[id];
+    if(!value) return;
+    await rateOrder(id, value);
+    delete ratingDrafts[id];
+    showBanner('Спасибо за оценку!', 'pending');
+    setTimeout(hideBanner, 3000);
+    renderPassenger();
+  }
+
+  async function rateOrder(id, value){
+    const { error } = await sb.rpc('rate_order', { p_order_id: id, p_value: value });
+    if(error) showBanner('Ошибка: ' + error.message, 'error');
+  }
+
+  function selectPassengerRating(id, value){
+    ratingDrafts[id] = value;
+    renderDriver();
+  }
+
+  function confirmRatePassenger(id){
+    const value = ratingDrafts[id];
+    if(!value) return;
+    ratePassenger(id, value);
+    delete ratingDrafts[id];
+  }
+
+  function ratePassenger(id, value){
+    sb.rpc('rate_passenger', { p_order_id: id, p_value: value })
+      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  async function submitOrder(){
+    if(!isConfigured){
+      alert('Сначала настройте подключение к Supabase (см. баннер сверху).');
+      return;
+    }
+    const from = document.getElementById('f-from').value.trim();
+    const to = document.getElementById('f-to').value.trim();
+    const price = document.getElementById('f-price').value.trim();
+    const comment = document.getElementById('f-comment').value.trim();
+    if(!from || !to || !price){
+      alert('Заполните откуда, куда и цену');
+      return;
+    }
+    const { error } = await sb.rpc('create_order', {
+      p_from: from,
+      p_to: to,
+      p_price: price,
+      p_comment: comment,
+      p_time: timeNow()
+    });
+    if(error) showBanner('Не удалось создать заказ: ' + error.message, 'error');
+  }
+
+  function cancelOrder(id){
+    sb.rpc('cancel_order', { p_order_id: id })
+      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  async function acceptOffer(orderId, offerId){
+    // Если предложение уже пропало из локального кэша (кто-то успел раньше,
+    // или водитель уже занят и его предложения сняли) — даже не отправляем
+    // запрос, который заведомо откажет. Список сам обновится через realtime,
+    // просто мягко покажем это.
+    if(!offers.some(of => of.id === offerId)){
+      showBanner('Этот водитель уже занят — предлагаем других', 'notice');
+      setTimeout(() => hideBanner(true), 3000);
+      return;
+    }
+    const { error } = await sb.rpc('accept_offer', { p_order_id: orderId, p_offer_id: offerId });
+    if(error){
+      console.error('accept_offer failed:', error.message);
+      // accept_offer отказывает ровно по одной причине с точки зрения пассажира:
+      // предложение перестало быть доступным (водитель занят/заказ уже разобран).
+      // Точный текст с сервера тут не имеет значения — это не системная ошибка.
+      showBanner('Этот водитель уже занят — предлагаем других', 'notice');
+      setTimeout(() => hideBanner(true), 3000);
+      fetchOrders();
+    }
+  }
+
+  // ---------- driver view ----------
+  // Заменяет разметку экрана, но сохраняет уже введённый текст, фокус и позицию курсора.
+  // Нужно для редких «настоящих» перерисовок (пришло realtime-обновление, пока
+  // пользователь печатает) — по таймеру сюда больше никто не заходит.
+  function setHtml(el, html){
+    const prevValues = {};
+    el.querySelectorAll('input[id], textarea[id]').forEach(i => { prevValues[i.id] = i.value; });
+
+    const active = document.activeElement;
+    let focusInfo = null;
+    if(active && el.contains(active) && active.id && (active.tagName === 'INPUT' || active.tagName === 'TEXTAREA')){
+      focusInfo = { id: active.id, selStart: active.selectionStart, selEnd: active.selectionEnd };
+    }
+
+    el.innerHTML = html;
+
+    el.querySelectorAll('input[id], textarea[id]').forEach(i => {
+      if(prevValues[i.id] !== undefined && prevValues[i.id] !== i.value) i.value = prevValues[i.id];
+    });
+
+    if(focusInfo){
+      const restored = document.getElementById(focusInfo.id);
+      if(restored){
+        restored.focus();
+        if(typeof restored.setSelectionRange === 'function' && focusInfo.selStart != null){
+          try { restored.setSelectionRange(focusInfo.selStart, focusInfo.selEnd); } catch(e){}
+        }
+      }
+    }
+  }
+
+  function renderDriver(){
+    const el = document.getElementById('view-driver');
+    renderedWaitPhase.driver = {};
+    const myOfferedIds = new Set(offers.filter(of => of.driverId === driverId).map(of => of.orderId));
+    const enRoute = orders.filter(o => o.status === 'accepted' && o.driverId === driverId);
+    const arrived = orders.filter(o => o.status === 'arrived' && o.driverId === driverId);
+    const inProgress = orders.filter(o => o.status === 'in_progress' && o.driverId === driverId);
+    const isBusy = enRoute.length > 0 || arrived.length > 0 || inProgress.length > 0;
+    // Пока у водителя уже есть активный заказ, он не должен видеть ни свои
+    // старые предложения на другие заказы, ни свободную ленту — сервер это и так
+    // не даст принять, но на экране это тоже не должно выглядеть как вариант.
+    const myOffers = isBusy ? [] : orders.filter(o => o.status === 'searching' && myOfferedIds.has(o.id));
+    const pending = isBusy ? [] : orders.filter(o => o.status === 'searching' && !myOfferedIds.has(o.id));
+    const mine = [...myOffers, ...enRoute, ...arrived, ...inProgress];
+    const needsRating = orders.filter(o => o.status === 'done' && o.driverId === driverId && o.driverRating == null);
+
+    let html = `<h1 class="view-title driver-title">Лента заказов</h1>`;
+
+    if(needsRating.length){
+      html += `<div class="order-list">`;
+      html += needsRating.map(o => `
+        <div class="req-card">
+          <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+          <div class="rating-block">
+            <div class="rating-label">Как прошла поездка с пассажиром?</div>
+            <div class="snowflakes">
+              ${[1,2,3,4,5].map(n => `<button class="snowflake ${ratingDrafts[o.id] && n <= ratingDrafts[o.id] ? 'filled' : ''}" onclick="selectPassengerRating(${o.id}, ${n})">❄</button>`).join('')}
+            </div>
+            <button class="btn-accept rating-confirm" onclick="confirmRatePassenger(${o.id})" ${!ratingDrafts[o.id] ? 'disabled' : ''}>Оценить</button>
+          </div>
+        </div>
+      `).join('');
+      html += `</div>`;
+    }
+
+    if(mine.length){
+      html += `<div class="order-list">`;
+      html += mine.map(o => `
+        <div class="req-card">
+          <div class="req-top">
+            <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+            <div class="req-time">${esc(o.time)}</div>
+          </div>
+          <div class="order-meta"><span class="order-price">${esc(o.price)} ₽</span> ${ratingBadge(passengerProfiles[o.passengerId])}</div>
+          ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
+          ${o.status === 'searching' ? driverOfferBlock(o, offers.find(of => of.orderId === o.id && of.driverId === driverId)) : ''}
+          ${o.status === 'accepted' ? `<div class="wait-text">${driverEtaLine(o)}</div>` : ''}
+          ${o.status === 'arrived' ? driverWaitBlock(o) : ''}
+          ${o.status === 'in_progress' ? `<div class="wait-text">Поездка началась</div>` : ''}
+          ${o.status !== 'searching' ? `
+          <div class="req-actions">
+            ${o.status === 'accepted'
+              ? `<button class="btn-accept" onclick="arriveOrder(${o.id})">Я на месте</button>`
+              : o.status === 'arrived'
+              ? `<button class="btn-accept" onclick="startTrip(${o.id})">Начать поездку</button>`
+              : `<button class="btn-complete" onclick="completeOrder(${o.id})">Завершить поездку</button>`}
+          </div>
+          ` : ''}
+          ${o.status === 'accepted' || o.status === 'arrived' ? `
+            <button class="btn-call" onclick="callCounterpart(${o.id})">Позвонить пассажиру</button>
+          ` : ''}
+        </div>
+      `).join('');
+      html += `</div>`;
+    }
+
+    if(pending.length){
+      html += `${mine.length ? '<div class="section-label">Свободные заказы</div>' : ''}<div class="order-list">`;
+      html += pending.map(o => `
+        <div class="req-card">
+          <div class="req-top">
+            <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+            <div class="req-time">${esc(o.time)}</div>
+          </div>
+          <div class="order-meta"><span class="order-price">${esc(o.price)} ₽</span> ${ratingBadge(passengerProfiles[o.passengerId])}</div>
+          ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
+          ${etaSelectingId === o.id ? `
+            <div class="eta-picker">
+              <div class="eta-label">Цена (можно предложить свою)</div>
+              <div class="price-picker">
+                <input id="price-input-${o.id}" type="number" min="0" inputmode="numeric"
+                       value="${esc(etaPriceDrafts[o.id] !== undefined ? etaPriceDrafts[o.id] : o.price)}"
+                       oninput="etaPriceDrafts[${o.id}] = this.value">
+              </div>
+              <div class="eta-label">Через сколько будете на месте?</div>
+              <div class="eta-options">
+                <button class="eta-chip${etaSelectedMinutes[o.id] === 3 ? ' active' : ''}" onclick="selectEta(${o.id}, 3)">3 мин</button>
+                <button class="eta-chip${etaSelectedMinutes[o.id] === 5 ? ' active' : ''}" onclick="selectEta(${o.id}, 5)">5 мин</button>
+                <button class="eta-chip${etaSelectedMinutes[o.id] === 10 ? ' active' : ''}" onclick="selectEta(${o.id}, 10)">10 мин</button>
+              </div>
+              <div class="eta-custom">
+                <input id="eta-input-${o.id}" type="number" min="1" placeholder="Своё время, мин"
+                       value="${etaSelectedMinutes[o.id] && ![3,5,10].includes(etaSelectedMinutes[o.id]) ? esc(etaSelectedMinutes[o.id]) : ''}"
+                       oninput="etaSelectedMinutes[${o.id}] = this.value ? Number(this.value) : null">
+                <button class="btn-accept" onclick="confirmAcceptSelected(${o.id})">ОК</button>
+              </div>
+            </div>
+          ` : `
+            <div class="req-actions">
+              <button class="btn-accept" onclick="startEtaSelection(${o.id})">Принять</button>
+            </div>
+          `}
+        </div>
+      `).join('');
+      html += `</div>`;
+    }
+
+    if(!pending.length && !mine.length){
+      html += `
+        <div class="empty-state">
+          <div class="spinner"></div>
+          <p>Пока нет новых заказов.<br>Список обновится, как только пассажир оформит поездку.</p>
+        </div>
+      `;
+    }
+
+    setHtml(el, html);
+  }
+
+
+  function startEtaSelection(id){
+    etaSelectingId = id;
+    renderDriver();
+  }
+
+  async function confirmAccept(id, etaMinutes){
+    // Имя берётся из профиля, заданного при регистрации — спрашивать каждый раз
+    // больше не нужно.
+    const order = orders.find(o => o.id === id);
+    const priceInput = document.getElementById('price-input-' + id);
+    const rawPrice = priceInput ? priceInput.value.trim() : '';
+    if(priceInput && rawPrice === ''){
+      alert('Укажите цену');
+      return;
+    }
+    const proposedPrice = rawPrice || order.price;
+
+    etaSelectingId = null;
+    const { error } = await sb.rpc('submit_offer', {
+      p_order_id: id,
+      p_driver_name: driverName,
+      p_price: proposedPrice,
+      p_eta: etaMinutes
+    });
+    if(error) showBanner('Ошибка: ' + error.message, 'error');
+    renderDriver();
+  }
+
+  function withdrawOffer(orderId){
+    sb.rpc('withdraw_offer', { p_order_id: orderId })
+      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  // Клик по кнопке "3/5/10 мин" — только выбирает время, не отправляет предложение
+  function selectEta(id, minutes){
+    etaSelectedMinutes[id] = minutes;
+    renderDriver();
+  }
+
+  // Единая точка отправки: нажатие "ОК" после выбора цены и времени подачи
+  async function confirmAcceptSelected(id){
+    const customInput = document.getElementById('eta-input-' + id);
+    let minutes = etaSelectedMinutes[id];
+    if(!minutes && customInput && customInput.value.trim()){
+      minutes = parseInt(customInput.value, 10);
+    }
+    if(!minutes || minutes <= 0){
+      alert('Выберите время подачи');
+      return;
+    }
+    await confirmAccept(id, minutes);
+    delete etaPriceDrafts[id];
+    delete etaSelectedMinutes[id];
+  }
+
+  // Час после завершения поездки — то же окно, что и на сервере в
+  // get_counterpart_phone. Тут только для того, чтобы не показывать кнопку,
+  // которая всё равно откажет — сервер проверяет это по-настоящему сам.
+  const CALL_GRACE_MS = 60 * 60 * 1000;
+  function isWithinCallGrace(order){
+    return order.status === 'done' && order.completedAt
+      && (Date.now() - Number(order.completedAt)) < CALL_GRACE_MS;
+  }
+
+  // Номер второй стороны выдаётся сервером только пока заказ активен — см.
+  // get_counterpart_phone в elva_call_button.sql. tel:-ссылка на телефоне сразу
+  // открывает набор; на компьютере такие ссылки обычно ничего не делают, поэтому
+  // на этот случай номер ещё и копируется в буфер и показывается в баннере.
+  async function callCounterpart(orderId){
+    const { data: phone, error } = await sb.rpc('get_counterpart_phone', { p_order_id: orderId });
+    if(error){
+      showBanner('Не удалось получить номер: ' + error.message, 'error');
+      return;
+    }
+    if(navigator.clipboard){
+      navigator.clipboard.writeText(phone).catch(() => {});
+    }
+    showBanner('Звоним на ' + phone + ' (номер также скопирован)', 'pending');
+    setTimeout(() => hideBanner(true), 6000);
+    window.location.href = 'tel:' + phone;
+  }
+
+  function arriveOrder(id){
+    sb.rpc('arrive_order', { p_order_id: id })
+      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  function startTrip(id){
+    sb.rpc('start_trip', { p_order_id: id })
+      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  function completeOrder(id){
+    sb.rpc('complete_order', { p_order_id: id })
+      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  // ---------- tab switching ----------
+  // ---------- история заказов ----------
+  // Отдельная для каждой роли: пассажиру важно "куда ездил и сколько заплатил",
+  // водителю — "сколько заработал", поэтому водительская сгруппирована по дням
+  // с итогом за день. Грузим страницами по 50 — у активного водителя за
+  // полгода наберутся сотни поездок.
+  const HISTORY_PAGE = 50;
+  let historyRole = 'passenger';
+  let historyItems = [];
+  let historyHasMore = false;
+  let historyStats = null;
+
+  async function openHistory(){
+    closeMenu();
+    historyRole = currentView;
+    historyItems = [];
+    historyHasMore = false;
+    historyStats = null;
+    document.getElementById('view-passenger').hidden = true;
+    document.getElementById('view-driver').hidden = true;
+    document.getElementById('view-history').hidden = false;
+    renderHistory(true);
+    await Promise.all([loadHistoryPage(), loadHistoryStats()]);
+    renderHistory(false);
+  }
+
+  function closeHistory(){
+    document.getElementById('view-history').hidden = true;
+    switchView(currentView);
+  }
+
+  async function loadHistoryPage(){
+    const from = historyItems.length;
+    let q = sb.from('orders').select('*');
+    q = historyRole === 'driver'
+      ? q.eq('driver_id', driverId).eq('status', 'done')
+      : q.eq('passenger_id', passengerId).in('status', ['done', 'cancelled']);
+    const { data, error } = await q
+      .order('id', { ascending: false })
+      .range(from, from + HISTORY_PAGE - 1);
+    if(error){ showBanner('Не удалось загрузить историю: ' + error.message, 'error'); return; }
+    historyItems = historyItems.concat(data.map(rowToOrder));
+    historyHasMore = data.length === HISTORY_PAGE;
+  }
+
+  async function loadHistoryStats(){
+    const { data, error } = await sb.rpc('my_history_stats', { p_role: historyRole });
+    if(error){ console.error('my_history_stats:', error.message); return; }
+    historyStats = Array.isArray(data) ? data[0] : data;
+  }
+
+  async function loadMoreHistory(){
+    await loadHistoryPage();
+    renderHistory(false);
+  }
+
+  // Момент, к которому относится поездка: для завершённой — когда завершилась,
+  // для отменённой — когда отменили, иначе — когда создана.
+  function historyMoment(o){
+    const ms = o.completedAt || o.cancelledAt;
+    return ms ? new Date(Number(ms)) : new Date(o.createdAt);
+  }
+
+  function historyDateLabel(d){
+    return d.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })
+      + ' в ' + d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  }
+
+  function historyPriceNumber(o){
+    const n = parseInt(String(o.price).replace(/\D/g, ''), 10);
+    return isNaN(n) ? 0 : n;
+  }
+
+  function historyCard(o, isDriver){
+    const d = historyMoment(o);
+    const cancelled = o.status === 'cancelled';
+    const myRating = isDriver ? o.driverRating : o.rating;
+    const who = isDriver ? '' : (o.driverName ? esc(o.driverName) : '');
+    const timeLabel = isDriver
+      ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
+      : historyDateLabel(d);
+    return `
+      <div class="order-card">
+        <div class="history-top">
+          <span>${timeLabel}</span>
+          <span class="${cancelled ? 'history-status-cancelled' : 'history-status-done'}">${cancelled ? 'Отменён' : 'Выполнен'}</span>
+        </div>
+        <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+        <div class="order-meta">
+          <span class="order-price">${esc(o.price)} ₽</span>
+          ${who ? ' · ' + who : ''}
+          ${myRating ? ' · ваша оценка ❄ ' + myRating : ''}
+        </div>
+        ${isWithinCallGrace(o) ? `
+          <button class="btn-call" onclick="callCounterpart(${o.id})">
+            Забыли что-то? Позвонить ${isDriver ? 'пассажиру' : 'водителю'}
+          </button>
+        ` : ''}
+      </div>
+    `;
+  }
+
+  function renderHistory(loading){
+    const el = document.getElementById('view-history');
+    const isDriver = historyRole === 'driver';
+
+    let summary = '';
+    if(historyStats){
+      const trips = Number(historyStats.trips) || 0;
+      summary = isDriver
+        ? `Поездок: ${trips} · заработано ${Number(historyStats.earned) || 0} ₽`
+        : `Поездок: ${trips}`;
+    }
+
+    let body = '';
+    if(loading){
+      body = `<div class="empty-state"><div class="spinner"></div><p>Загружаем историю…</p></div>`;
+    } else if(!historyItems.length){
+      body = `<div class="empty-state"><p>Здесь появятся ваши поездки.</p></div>`;
+    } else if(isDriver){
+      // Группировка по дням с итогом за день. Итог считается по загруженным
+      // поездкам: если день попал на границу страницы, после "Показать ещё"
+      // он досчитается.
+      const groups = [];
+      historyItems.forEach(o => {
+        const d = historyMoment(o);
+        const key = d.toDateString();
+        let g = groups.find(x => x.key === key);
+        if(!g){ g = { key, date: d, items: [], total: 0 }; groups.push(g); }
+        g.items.push(o);
+        g.total += historyPriceNumber(o);
+      });
+      body = groups.map(g => `
+        <div class="history-day">
+          <span>${g.date.toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}</span>
+          <span>${g.total} ₽</span>
+        </div>
+        ${g.items.map(o => historyCard(o, true)).join('')}
+      `).join('');
+    } else {
+      body = historyItems.map(o => historyCard(o, false)).join('');
+    }
+
+    el.innerHTML = `
+      <div class="history-head">
+        <button class="history-back" onclick="closeHistory()">← Назад</button>
+        <h1 class="view-title">${isDriver ? 'Мои поездки' : 'История заказов'}</h1>
+      </div>
+      ${summary ? `<p class="history-summary">${summary}</p>` : ''}
+      ${body}
+      ${!loading && historyHasMore ? `<button class="btn-call history-more" onclick="loadMoreHistory()">Показать ещё</button>` : ''}
+    `;
+  }
+
+  // ---------- боковое меню и смена роли ----------
+  function openMenu(){
+    refreshMenu();
+    document.getElementById('menu-overlay').hidden = false;
+    document.getElementById('side-menu').hidden = false;
+  }
+
+  function closeMenu(){
+    document.getElementById('menu-overlay').hidden = true;
+    document.getElementById('side-menu').hidden = true;
+  }
+
+  // Рейтинг в меню — всегда той роли, в которой человек сейчас находится:
+  // у водителя и пассажира это два независимых числа.
+  function refreshMenu(){
+    document.getElementById('menu-name').textContent = (myProfile && myProfile.name) || '—';
+
+    const isDriver = currentView === 'driver';
+    const profile = isDriver ? driverProfiles[driverId] : passengerProfiles[passengerId];
+    const count = profile ? profile.count : 0;
+    const avg = count ? (profile.sum / count) : null;
+
+    document.getElementById('menu-rating').textContent = avg
+      ? `❄ ${avg.toFixed(1)} · ${count} ${pluralTrips(count)}`
+      : 'Пока нет оценок';
+    document.getElementById('menu-role-note').textContent = isDriver ? 'Вы водитель' : 'Вы пассажир';
+    document.getElementById('menu-role-switch').textContent = isDriver ? 'Стать пассажиром' : 'Стать водителем';
+  }
+
+  function pluralTrips(n){
+    const last = n % 10, tens = n % 100;
+    if(tens >= 11 && tens <= 14) return 'поездок';
+    if(last === 1) return 'поездка';
+    if(last >= 2 && last <= 4) return 'поездки';
+    return 'поездок';
+  }
+
+  function switchRoleFromMenu(){
+    switchView(currentView === 'driver' ? 'passenger' : 'driver');
+    closeMenu();
+  }
+
+  function logoutFromMenu(){
+    sb.rpc('unlink_current_session').then(() => location.reload());
+  }
+
+  function menuSoon(what){
+    closeMenu();
+    showBanner(what + ' появится в следующем обновлении', 'notice');
+    setTimeout(() => hideBanner(true), 3000);
+  }
+
+  function switchView(view){
+    currentView = view;
+    document.getElementById('view-history').hidden = true;
+    document.getElementById('view-passenger').hidden = view !== 'passenger';
+    document.getElementById('view-driver').hidden = view !== 'driver';
+  }
+
+  init();
+
+  setInterval(() => {
+    if(isConfigured){
+      const staleOffers = offers.filter(of => Date.now() - of.createdAt >= OFFER_TIMEOUT_MS);
+      staleOffers.forEach(of => {
+        sb.rpc('expire_offer', { p_offer_id: of.id })
+          .then(({ error }) => { if(error) console.error(error); });
+      });
+    }
+    tickTimers();
+  }, 1000);
+
+</script>
+
+</body>
+</html>
