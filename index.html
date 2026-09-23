@@ -833,6 +833,7 @@ void main(){
 
     <div class="menu-items">
       <button class="menu-item" onclick="openHistory()">История заказов</button>
+      <button class="menu-item" onclick="sendTestPush()">Проверить уведомления</button>
       <button class="menu-item" onclick="menuSoon('Помощь')">Помощь</button>
       <button class="menu-item menu-item-muted" onclick="logoutFromMenu()">Выйти</button>
     </div>
@@ -1266,6 +1267,30 @@ void main(){
       console.error('subscribePush:', e);
       showBanner('Не удалось включить уведомления: ' + (e.message || e), 'error');
       return false;
+    }
+  }
+
+  // Проверочное уведомление. Отправляется не устройству, а человеку: сервер
+  // разошлёт его на все устройства, где этот человек разрешил уведомления.
+  // Поэтому кнопку можно нажать в Safari, пока приложение с экрана «Домой»
+  // закрыто, — и проверить, доходит ли уведомление в фоне.
+  async function sendTestPush(){
+    closeMenu();
+    if(!sb){
+      showBanner('Нет связи с сервером', 'error');
+      setTimeout(() => hideBanner(true), 4000);
+      return;
+    }
+    showBanner('Отправляем проверочное уведомление…', 'pending');
+    try {
+      const { error } = await sb.functions.invoke('send-push', { body: { event: 'test' } });
+      if(error) throw error;
+      showBanner('Отправлено. Если уведомление не пришло — проверьте Настройки → Уведомления → ElvA', 'notice');
+      setTimeout(() => hideBanner(true), 7000);
+    } catch(e){
+      console.error('test push:', e);
+      showBanner('Не удалось отправить: ' + (e.message || e), 'error');
+      setTimeout(() => hideBanner(true), 7000);
     }
   }
 
