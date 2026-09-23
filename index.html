@@ -1087,8 +1087,28 @@ void main(){
     }
   }
 
+  // ---------- связь с базой и возврат из фона ----------
+  //
+  // Realtime держится на постоянно открытом соединении. Когда телефон
+  // сворачивает приложение, система через несколько секунд замораживает его
+  // и рвёт связь — запретить это нельзя. Вернувшись, приложение об этом не
+  // знает и показывает то, что было до сворачивания. Хуже того: даже если
+  // связь поднимется сама, realtime присылает только то, что происходит
+  // прямо сейчас, — пропущенное за время сна не догоняется.
+  //
+  // Поэтому при каждом возврате на экран: перечитываем данные (догоняем
+  // пропущенное) и поднимаем связь заново, если она мертва.
+
+  let realtimeChannel = null;
+  let realtimeWatchTimer = null;
+  let resyncInFlight = false;
+
   function subscribeRealtime(){
-    sb
+    if(realtimeChannel){
+      try { sb.removeChannel(realtimeChannel); } catch(e){}
+      realtimeChannel = null;
+    }
+    realtimeChannel = sb
       .channel('orders-sync')
       .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => {
         fetchOrders();
@@ -1103,6 +1123,47 @@ void main(){
         fetchProfiles();
       })
       .subscribe();
+  }
+
+  // Жива ли связь. Состояние 'joined' — всё в порядке; любое другое
+  // ('closed', 'errored', 'leaving') значит, что обновления не дойдут.
+  function realtimeAlive(){
+    return !!realtimeChannel && realtimeChannel.state === 'joined';
+  }
+
+  // Перечитать всё разом. Защита от наложения: если предыдущий заход ещё идёт,
+  // второй не запускаем.
+  async function resyncNow(){
+    if(!sb || !myProfile || resyncInFlight) return;
+    resyncInFlight = true;
+    try {
+      await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles()]);
+      if(!realtimeAlive()) subscribeRealtime();
+    } catch(e){
+      console.error('resync:', e);
+    } finally {
+      resyncInFlight = false;
+    }
+  }
+
+  function startRealtimeWatch(){
+    // Возврат на экран. visibilitychange ловит обычное переключение,
+    // pageshow — случай, когда телефон достал приложение из «заморозки».
+    document.addEventListener('visibilitychange', () => {
+      if(document.visibilityState === 'visible') resyncNow();
+    });
+    window.addEventListener('pageshow', () => resyncNow());
+    window.addEventListener('online', () => resyncNow());
+
+    // Страховка на случай, когда связь оборвалась незаметно, без сворачивания
+    // (метро, лифт, переход с Wi-Fi на мобильный интернет). Проверяем только
+    // состояние соединения, запросов к базе при этом нет. В фоне таймер
+    // всё равно заморожен, батарею не ест.
+    clearInterval(realtimeWatchTimer);
+    realtimeWatchTimer = setInterval(() => {
+      if(document.visibilityState !== 'visible') return;
+      if(!realtimeAlive()) resyncNow();
+    }, 20000);
   }
 
   // Запуск: пока играет заставка, в фоне проверяем сессию и номер и готовим
@@ -1159,6 +1220,7 @@ void main(){
     await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles()]);
     try {
       subscribeRealtime();
+      startRealtimeWatch();
     } catch(e){
       console.error('Realtime subscribe failed:', e);
     }
