@@ -2,6 +2,12 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
+<!-- Цвет фона — самой первой строкой, раньше любых загрузок. Пока страница
+     ничего не нарисовала, iOS показывает свой серый фон окна, и при запуске
+     с экрана «Домой» это видно как вспышка. Чем раньше страница нарисует
+     свой первый кадр нашего цвета, тем короче (или вовсе незаметна) эта
+     вспышка. Цвет тот же, что у заставки и background_color в манифесте. -->
+<style>html, body{ background: #03070a; }</style>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ElvA — такси по Олёкминску</title>
 <!-- Установка на экран «Домой» и push-уведомления -->
@@ -12,9 +18,13 @@
 <meta name="apple-mobile-web-app-title" content="ElvA">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#03070a">
+<!-- Шрифты грузятся, не задерживая первый кадр: обычная ссылка на стили
+     заставляет страницу ждать их загрузки. На заставке текста нет, а к её
+     уходу шрифты уже на месте. -->
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" onload="this.onload=null;this.rel='stylesheet'">
+<noscript><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap"></noscript>
 <style>
   :root{
     --night: #10142A;
@@ -1057,6 +1067,9 @@ void main(){
   <div class="footer-note">Демо-прототип · данные не сохраняются между сессиями</div>
 </div>
 
+<!-- Библиотека Supabase. Раньше стояла в <head> и держала страницу пустой,
+     пока скачивалась; здесь она грузится уже после того, как заставка на экране. -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // ---------- Supabase config ----------
   // Вставьте сюда свои значения из Settings → API вашего проекта Supabase.
