@@ -10,8 +10,8 @@
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ElvA">
-<meta name="apple-mobile-web-app-status-bar-style" content="black">
-<meta name="theme-color" content="#03070a">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#10142A">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -40,6 +40,9 @@
     height: 100%;
     -webkit-text-size-adjust: 100%;
     overscroll-behavior: none;
+    /* Статусная строка прозрачная (black-translucent), и под ней виден фон
+       самого верхнего уровня. Без этого iOS рисует там белое. */
+    background: var(--night);
   }
 
   body{
@@ -2549,8 +2552,22 @@ void main(){
     setTimeout(() => hideBanner(true), 3000);
   }
 
+  // Строка водителя в базе. Пока отдельной регистрации водителя нет (номер
+  // машины, цвет и прочее — следующий заход), водителем считается тот, кто
+  // хоть раз открыл этот раздел: по строке в driver_profiles рассылка узнаёт,
+  // кому вообще предлагать новые заказы. Делается один раз за запуск.
+  let driverProfileEnsured = false;
+  function ensureDriverProfile(){
+    if(driverProfileEnsured || !sb) return;
+    driverProfileEnsured = true;
+    sb.rpc('ensure_driver_profile').then(({ error }) => {
+      if(error){ driverProfileEnsured = false; console.error(error); }
+    });
+  }
+
   function switchView(view){
     currentView = view;
+    if(view === 'driver') ensureDriverProfile();
     document.getElementById('view-history').hidden = true;
     document.getElementById('view-passenger').hidden = view !== 'passenger';
     document.getElementById('view-driver').hidden = view !== 'driver';
