@@ -11,7 +11,7 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ElvA">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#10142A">
+<meta name="theme-color" content="#03070a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -41,8 +41,11 @@
     -webkit-text-size-adjust: 100%;
     overscroll-behavior: none;
     /* Статусная строка прозрачная (black-translucent), и под ней виден фон
-       самого верхнего уровня. Без этого iOS рисует там белое. */
-    background: var(--night);
+       самого верхнего уровня. Без этого iOS рисует там белое.
+       Цвет — ровно такой же, как у заставки (#splash) и как background_color
+       в манифесте: иначе между стартовым экраном системы и заставкой
+       проскакивает кадр другого цвета, и это видно как вспышка. */
+    background: #03070a;
   }
 
   body{
