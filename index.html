@@ -625,6 +625,41 @@
     font-size: 12.5px; line-height: 1.7; padding: 8px 0 4px;
   }
 
+  /* Отмена поездки: кнопка на карточке и окно подтверждения снизу. */
+  .trip-cancel{ margin-top: 10px; }
+  .cancel-close{ margin-top: 10px; }
+  .confirm-overlay{
+    position: fixed; inset: 0; z-index: 80;
+    display: flex; align-items: flex-end; justify-content: center;
+    background: rgba(5,12,15,0.6);
+    opacity: 0; transition: opacity 0.2s ease;
+  }
+  .confirm-overlay.open{ opacity: 1; }
+  .confirm-sheet{
+    width: 100%; max-width: 480px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    padding: 24px 24px calc(20px + env(safe-area-inset-bottom));
+    transform: translateY(16px); transition: transform 0.2s ease;
+  }
+  .confirm-overlay.open .confirm-sheet{ transform: none; }
+  .confirm-title{ font-weight: 700; font-size: 18px; margin-bottom: 8px; }
+  .confirm-text{ color: var(--muted); font-size: 14.5px; line-height: 1.55; margin: 0 0 18px; }
+  .btn-danger{
+    width: 100%; padding: 15px;
+    background: var(--danger); color: #2a0b0e;
+    border: none; border-radius: 12px;
+    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 15px;
+    cursor: pointer;
+  }
+  .confirm-no{ margin-top: 10px; padding: 14px; font-size: 15px; color: var(--text); }
+  .confirm-no:focus:not(:focus-visible){ outline: none; }
+  @media (prefers-reduced-motion: reduce){
+    .confirm-overlay, .confirm-sheet{ transition: none; }
+  }
+
   /* На телефоне приложение занимает весь экран: страница целиком не
      прокручивается и не оттягивается, ездит только содержимое. */
   @media (max-width: 560px){
@@ -1160,6 +1195,7 @@ void main(){
       driverRating: row.driver_rating,
       completedAt: row.completed_at,
       cancelledAt: row.cancelled_at,
+      cancelledBy: row.cancelled_by,
       createdAt: row.created_at
     };
   }
@@ -1183,11 +1219,18 @@ void main(){
       // грузить их все на каждый рефреш нельзя — список будет только расти.
       // Здесь берём только живые заказы и недавно завершённые: последние ещё
       // нужны для экрана оценки и кнопки "забыли что-то — позвонить".
+      // Плюс поездки, которые водитель отменил за последние полчаса: пассажиру
+      // нужно показать «Водитель отменил поездку», даже если он вернулся
+      // в приложение не сразу.
       const recentCutoff = Date.now() - 2 * 60 * 60 * 1000;
+      const cancelCutoff = Date.now() - DRIVER_CANCEL_NOTICE_MS;
       const { data, error } = await sb.from('orders')
         .select('*')
-        .neq('status', 'cancelled')
-        .or(`status.neq.done,completed_at.gte.${recentCutoff}`)
+        .or([
+          'status.in.(searching,accepted,arrived,in_progress)',
+          `and(status.eq.done,completed_at.gte.${recentCutoff})`,
+          `and(status.eq.cancelled,cancelled_by.eq.driver,cancelled_at.gte.${cancelCutoff})`
+        ].join(','))
         .order('id', { ascending: true });
       if(error){
         showBanner('Не удалось получить заказы: ' + error.message, 'error');
@@ -1912,7 +1955,44 @@ void main(){
   function activePassengerOrder(){
     // Завершённый и уже оценённый заказ пассажира с экрана убираем, но строку в базе
     // не трогаем: она ещё нужна водителю, чтобы он успел поставить свою оценку.
-    return orders.find(o => o.passengerId === passengerId && !(o.status === 'done' && o.rating != null));
+    // Отменённые сюда не попадают: для них отдельная карточка ниже.
+    return orders.find(o => o.passengerId === passengerId
+      && o.status !== 'cancelled'
+      && !(o.status === 'done' && o.rating != null));
+  }
+
+  // ---------- «Водитель отменил поездку» ----------
+  // Показываем пассажиру вместо формы, пока он её не закроет или не закажет
+  // снова. Какие карточки уже закрыты, помним в браузере — иначе после
+  // перезапуска она вылезла бы опять. Через полчаса карточка не грузится вовсе.
+  const DRIVER_CANCEL_NOTICE_MS = 30 * 60 * 1000;
+  const CANCEL_SEEN_KEY = 'elva_cancel_seen';
+  let cancelSeen = [];
+  try { cancelSeen = JSON.parse(localStorage.getItem(CANCEL_SEEN_KEY) || '[]'); } catch(e){ cancelSeen = []; }
+  let reorderDraft = null;
+
+  function driverCancelledNotice(){
+    const list = orders.filter(o => o.passengerId === passengerId
+      && o.status === 'cancelled' && o.cancelledBy === 'driver'
+      && !cancelSeen.includes(o.id));
+    if(!list.length) return null;
+    const last = list[list.length - 1];
+    // Если после отмены пассажир уже сделал новый заказ — старая новость не нужна.
+    if(orders.some(o => o.passengerId === passengerId && o.id > last.id)) return null;
+    return last;
+  }
+
+  function dismissCancelNotice(id){
+    if(!cancelSeen.includes(id)) cancelSeen.push(id);
+    cancelSeen = cancelSeen.slice(-20);
+    try { localStorage.setItem(CANCEL_SEEN_KEY, JSON.stringify(cancelSeen)); } catch(e){}
+    renderPassenger();
+  }
+
+  function reorderFromCancelled(id){
+    const o = orders.find(x => x.id === id);
+    if(o) reorderDraft = { from: o.from, to: o.to, price: o.price, comment: o.comment };
+    dismissCancelNotice(id);
   }
 
   function renderPassenger(){
@@ -1921,6 +2001,20 @@ void main(){
     const active = activePassengerOrder();
 
     if(!active){
+      const cancelled = driverCancelledNotice();
+      if(cancelled){
+        setHtml(el, `
+          <h1 class="view-title order-title">Водитель отменил поездку</h1>
+          <div class="order-card">
+            <div class="order-route">${esc(cancelled.from)}<span class="arrow">→</span>${esc(cancelled.to)}</div>
+            <div class="order-meta">${cancelled.driverName ? esc(cancelled.driverName) + ' · ' : ''}<span class="order-price">${esc(cancelled.price)} ₽</span></div>
+            <p class="support-text">Можно заказать снова: адреса и цена подставятся сами.</p>
+            <button class="btn-primary" onclick="reorderFromCancelled(${cancelled.id})">Заказать снова</button>
+            <button class="btn-ghost cancel-close" onclick="dismissCancelNotice(${cancelled.id})">Закрыть</button>
+          </div>
+        `);
+        return;
+      }
       setHtml(el, `
         <h1 class="view-title">Куда едем?</h1>
         <p class="view-sub">Укажите адреса и предложите цену — водители увидят ваш заказ</p>
@@ -1955,6 +2049,14 @@ void main(){
         </div>
         <button class="btn-primary" onclick="submitOrder()">Заказать такси</button>
       `);
+      if(reorderDraft){
+        const d = reorderDraft;
+        reorderDraft = null;
+        document.getElementById('f-from').value = d.from || '';
+        document.getElementById('f-to').value = d.to || '';
+        document.getElementById('f-price').value = String(d.price || '').replace(/\D/g, '');
+        document.getElementById('f-comment').value = d.comment || '';
+      }
       return;
     }
 
@@ -1978,6 +2080,11 @@ void main(){
         ${order.status === 'searching' ? `
           <div class="order-actions">
             <button class="btn-ghost" onclick="cancelOrder(${order.id})">Отменить заказ</button>
+          </div>
+        ` : ''}
+        ${order.status === 'accepted' || order.status === 'arrived' ? `
+          <div class="order-actions">
+            <button class="btn-ghost" onclick="askCancelTrip(${order.id}, 'passenger')">Отменить поездку</button>
           </div>
         ` : ''}
         ${order.status === 'done' ? `
@@ -2063,6 +2170,76 @@ void main(){
   function cancelOrder(id){
     sb.rpc('cancel_order', { p_order_id: id })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  }
+
+  // Отмена, когда водитель уже выбран. Сначала переспрашиваем: вторая сторона
+  // уже в пути или ждёт, случайное нажатие дорого обойдётся.
+  async function askCancelTrip(id, role){
+    const o = orders.find(x => x.id === id);
+    if(!o) return;
+    let text;
+    if(role === 'passenger'){
+      const who = o.driverName ? 'Водитель ' + o.driverName : 'Водитель';
+      text = (o.status === 'arrived' ? who + ' уже ждёт вас на месте.' : who + ' уже едет к вам.')
+        + ' Он получит уведомление об отмене.';
+    } else {
+      text = o.status === 'arrived'
+        ? 'Пассажир получит уведомление об отмене. Если он не выходит, сначала попробуйте позвонить.'
+        : 'Пассажир ждёт машину. Он получит уведомление, что вы отменили поездку.';
+    }
+    const ok = await confirmSheet({
+      title: 'Отменить поездку?',
+      text,
+      okText: 'Отменить поездку',
+      cancelText: 'Не отменять'
+    });
+    if(!ok) return;
+
+    const { error } = await sb.rpc('cancel_order', { p_order_id: id });
+    if(error){
+      // Чаще всего это значит, что пока окно было открыто, поездка уже
+      // началась или её отменила другая сторона.
+      console.error('cancel_order:', error.message);
+      showBanner('Не удалось отменить: поездка уже началась или изменилась', 'notice');
+      setTimeout(() => hideBanner(true), 4000);
+      fetchOrders();
+      return;
+    }
+    showToast('Поездка отменена');
+    fetchOrders();
+  }
+
+  // Окно подтверждения снизу экрана. Возвращает true, если человек нажал
+  // основную кнопку; нажатие мимо окна — то же, что «Не отменять».
+  function confirmSheet({ title, text, okText, cancelText }){
+    return new Promise(resolve => {
+      const wrap = document.createElement('div');
+      wrap.className = 'confirm-overlay';
+      wrap.innerHTML = `
+        <div class="confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
+          <div class="confirm-title" id="confirm-title">${esc(title)}</div>
+          <p class="confirm-text">${esc(text)}</p>
+          <button class="btn-danger" data-act="ok">${esc(okText)}</button>
+          <button class="btn-ghost confirm-no" data-act="no">${esc(cancelText)}</button>
+        </div>`;
+      function close(result){
+        wrap.classList.remove('open');
+        setTimeout(() => wrap.remove(), 200);
+        document.removeEventListener('keydown', onKey);
+        resolve(result);
+      }
+      function onKey(e){ if(e.key === 'Escape') close(false); }
+      wrap.addEventListener('click', e => {
+        const act = e.target.closest('[data-act]');
+        if(act) close(act.dataset.act === 'ok');
+        else if(e.target === wrap) close(false);
+      });
+      document.addEventListener('keydown', onKey);
+      document.body.appendChild(wrap);
+      void wrap.offsetWidth;
+      wrap.classList.add('open');
+      wrap.querySelector('.confirm-no').focus();
+    });
   }
 
   async function acceptOffer(orderId, offerId){
@@ -2228,6 +2405,7 @@ void main(){
           ` : ''}
           ${o.status === 'accepted' || o.status === 'arrived' ? `
             <button class="btn-call" onclick="callCounterpart(${o.id})">Позвонить пассажиру</button>
+            <button class="btn-ghost trip-cancel" onclick="askCancelTrip(${o.id}, 'driver')">Отменить поездку</button>
           ` : ''}
         </div>
       `).join('');
@@ -2429,7 +2607,7 @@ void main(){
     const from = historyItems.length;
     let q = sb.from('orders').select('*');
     q = historyRole === 'driver'
-      ? q.eq('driver_id', driverId).eq('status', 'done')
+      ? q.eq('driver_id', driverId).in('status', ['done', 'cancelled'])
       : q.eq('passenger_id', passengerId).in('status', ['done', 'cancelled']);
     const { data, error } = await q
       .order('id', { ascending: false })
@@ -2472,6 +2650,12 @@ void main(){
     const cancelled = o.status === 'cancelled';
     const myRating = isDriver ? o.driverRating : o.rating;
     const who = isDriver ? '' : (o.driverName ? esc(o.driverName) : '');
+    let statusLabel = 'Выполнен';
+    if(cancelled){
+      statusLabel = isDriver
+        ? (o.cancelledBy === 'passenger' ? 'Отменил пассажир' : 'Вы отменили')
+        : (o.cancelledBy === 'driver' ? 'Отменил водитель' : 'Вы отменили');
+    }
     const timeLabel = isDriver
       ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
       : historyDateLabel(d);
@@ -2479,11 +2663,11 @@ void main(){
       <div class="order-card">
         <div class="history-top">
           <span>${timeLabel}</span>
-          <span class="${cancelled ? 'history-status-cancelled' : 'history-status-done'}">${cancelled ? 'Отменён' : 'Выполнен'}</span>
+          <span class="${cancelled ? 'history-status-cancelled' : 'history-status-done'}">${statusLabel}</span>
         </div>
         <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
         <div class="order-meta">
-          <span class="order-price">${esc(o.price)} ₽</span>
+          ${isDriver && cancelled ? 'Без оплаты' : `<span class="order-price">${esc(o.price)} ₽</span>`}
           ${who ? ' · ' + who : ''}
           ${myRating ? ' · ваша оценка ❄ ' + myRating : ''}
         </div>
@@ -2524,7 +2708,7 @@ void main(){
         let g = groups.find(x => x.key === key);
         if(!g){ g = { key, date: d, items: [], total: 0 }; groups.push(g); }
         g.items.push(o);
-        g.total += historyPriceNumber(o);
+        if(o.status === 'done') g.total += historyPriceNumber(o);
       });
       body = groups.map(g => `
         <div class="history-day">
@@ -2575,7 +2759,10 @@ void main(){
         <p>Нажмите <b>«Выбрать»</b> у подходящего. Каждое предложение действует 3 минуты.</p>` },
       { q: 'Как отменить заказ?', a: `
         <p>Пока вы не выбрали водителя — кнопка <b>«Отменить заказ»</b> под заказом.</p>
-        <p>Если водитель уже едет, отменить в приложении пока нельзя. Позвоните ему кнопкой «Позвонить водителю» и предупредите.</p>` },
+        <p>Если водитель уже едет или ждёт на месте — кнопка <b>«Отменить поездку»</b>. Водитель получит уведомление.</p>
+        <p>Когда поездка началась, отменить её нельзя.</p>` },
+      { q: 'Водитель отменил поездку — что делать?', a: `
+        <p>Придёт уведомление, а на экране появится кнопка <b>«Заказать снова»</b>. Адреса и цена подставятся сами — останется нажать «Заказать такси».</p>` },
       { q: 'Как позвонить водителю?', a: `
         <p>Когда водитель выбран, под заказом появляется кнопка <b>«Позвонить водителю»</b>. Она есть, пока водитель едет к вам и ждёт на месте.</p>` },
       { q: 'Водитель приехал — что дальше?', a: `
@@ -2605,7 +2792,8 @@ void main(){
         <p>Если пассажир что-то забыл, в течение часа после поездки позвонить можно из <b>«Моих поездок»</b> в меню.</p>` },
       { q: 'Как отказаться от заказа?', a: `
         <p>Пока пассажир не выбрал вас — <b>«Отозвать предложение»</b>.</p>
-        <p>Если пассажир вас уже выбрал, отказаться в приложении пока нельзя. Позвоните пассажиру, предупредите его и напишите в поддержку.</p>` },
+        <p>Если выбрал, но поездка ещё не началась — <b>«Отменить поездку»</b> на карточке заказа. Пассажир получит уведомление.</p>
+        <p>Если пассажир не выходит, сначала попробуйте позвонить.</p>` },
       { q: 'Где посмотреть заработок?', a: `
         <p>В меню — <b>«История заказов»</b> (у водителя она называется «Мои поездки»). Поездки собраны по дням, у каждого дня — сумма.</p>` },
       { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
