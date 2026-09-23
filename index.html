@@ -561,6 +561,70 @@
   .history-status-cancelled{ color: var(--danger); }
   .history-more{ margin-top: 4px; }
 
+  /* Раздел «Помощь». Вопросы — на встроенных <details>: раскрываются без
+     скриптов, и их понимают программы чтения экрана. */
+  #view-help:not([hidden]){ display: flex; flex-direction: column; gap: 14px; }
+  #view-help .history-summary{ margin: -6px 0 0; }
+  .faq-list{
+    display: flex; flex-direction: column;
+    background: var(--surface-2);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 0 18px;
+  }
+  .faq-item{ border-bottom: 1px solid var(--line); }
+  .faq-item:last-child{ border-bottom: none; }
+  .faq-item summary{
+    list-style: none;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    padding: 15px 0;
+    font-weight: 600; font-size: 15px; line-height: 1.4;
+    cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .faq-item summary::-webkit-details-marker{ display: none; }
+  .faq-item summary::after{
+    content: '';
+    flex-shrink: 0;
+    width: 8px; height: 8px;
+    border-right: 1.8px solid var(--ice-dim);
+    border-bottom: 1.8px solid var(--ice-dim);
+    transform: rotate(45deg) translate(-2px, -2px);
+    transition: transform 0.2s ease;
+  }
+  .faq-item[open] summary{ color: var(--ice); }
+  .faq-item[open] summary::after{
+    border-color: var(--ice);
+    transform: rotate(225deg) translate(-2px, -2px);
+  }
+  .faq-answer{
+    padding: 0 0 16px;
+    color: var(--muted); font-size: 14px; line-height: 1.6;
+  }
+  .faq-answer p{ margin: 0 0 8px; }
+  .faq-answer p:last-child{ margin-bottom: 0; }
+  .faq-answer b{ color: var(--text); font-weight: 600; }
+  .faq-item[open] .faq-answer{ animation: faqIn 0.2s ease; }
+  @keyframes faqIn{
+    from{ opacity: 0; transform: translateY(-4px); }
+    to{ opacity: 1; transform: none; }
+  }
+  @media (prefers-reduced-motion: reduce){
+    .faq-item summary::after{ transition: none; }
+    .faq-item[open] .faq-answer{ animation: none; }
+  }
+
+  .support-title{ font-weight: 700; font-size: 16px; margin-bottom: 6px; }
+  .support-text{ color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
+  .support-mail{
+    font-weight: 600; font-size: 15px; color: var(--ice);
+    word-break: break-all; margin-bottom: 14px;
+  }
+  .help-about{
+    text-align: center; color: var(--muted);
+    font-size: 12.5px; line-height: 1.7; padding: 8px 0 4px;
+  }
+
   /* На телефоне приложение занимает весь экран: страница целиком не
      прокручивается и не оттягивается, ездит только содержимое. */
   @media (max-width: 560px){
@@ -906,7 +970,7 @@ void main(){
     <div class="menu-items">
       <button class="menu-item" onclick="openHistory()">История заказов</button>
       <button class="menu-item" onclick="sendTestPush()">Проверить уведомления</button>
-      <button class="menu-item" onclick="menuSoon('Помощь')">Помощь</button>
+      <button class="menu-item" onclick="openHelp()">Помощь</button>
       <button class="menu-item menu-item-muted" onclick="logoutFromMenu()">Выйти</button>
     </div>
   </nav>
@@ -952,6 +1016,7 @@ void main(){
     <section id="view-passenger" hidden></section>
     <section id="view-driver" hidden></section>
     <section id="view-history" hidden></section>
+    <section id="view-help" hidden></section>
   </main>
 
   <div class="footer-note">Демо-прототип · данные не сохраняются между сессиями</div>
@@ -2348,6 +2413,7 @@ void main(){
     historyStats = null;
     document.getElementById('view-passenger').hidden = true;
     document.getElementById('view-driver').hidden = true;
+    document.getElementById('view-help').hidden = true;
     document.getElementById('view-history').hidden = false;
     renderHistory(true);
     await Promise.all([loadHistoryPage(), loadHistoryStats()]);
@@ -2482,6 +2548,150 @@ void main(){
     `;
   }
 
+  // ---------- раздел «Помощь» ----------
+  // Вопросы свои для каждой роли, как и история. Тексты — просто список ниже:
+  // поправить ответ = поменять строку. В ответах можно <p> и <b>.
+  // Адрес поддержки пока почта; когда появится постоянный канал — меняется здесь.
+  const APP_VERSION = '0.5';
+  const SUPPORT_EMAIL = 'elva.service.support@gmail.com';
+
+  const HELP_PUSH_ANSWER = `
+    <p><b>На iPhone</b> уведомления работают только в приложении, установленном на экран «Домой» (см. вопрос ниже). Запускайте ElvA с иконки и разрешите уведомления, когда телефон спросит.</p>
+    <p>Проверить можно в меню: <b>«Проверить уведомления»</b> — должно прийти пробное сообщение.</p>
+    <p>Если не пришло: проверьте, не включён ли режим «Не беспокоить» или фокусирование, и что уведомления для ElvA разрешены в настройках телефона.</p>`;
+
+  const HELP_INSTALL_ANSWER = `
+    <p><b>iPhone:</b> откройте сайт ElvA в Safari, нажмите кнопку «Поделиться» (квадрат со стрелкой) и выберите «На экран „Домой“».</p>
+    <p><b>Android:</b> откройте меню браузера (три точки) и выберите «Добавить на главный экран» или «Установить приложение».</p>
+    <p>Дальше запускайте ElvA с иконки — так оно открывается во весь экран и получает уведомления.</p>`;
+
+  const HELP_FAQ = {
+    passenger: [
+      { q: 'Как заказать такси?', a: `
+        <p>На главном экране укажите, откуда и куда ехать, и сколько готовы заплатить. В комментарии можно написать подъезд, про багаж или детское кресло.</p>
+        <p>Нажмите <b>«Заказать такси»</b> — заказ увидят водители и начнут присылать предложения.</p>` },
+      { q: 'Как выбрать водителя?', a: `
+        <p>Предложения появляются под заказом: цена, через сколько минут водитель подъедет и его рейтинг. Сверху — самые дешёвые.</p>
+        <p>Нажмите <b>«Выбрать»</b> у подходящего. Каждое предложение действует 3 минуты.</p>` },
+      { q: 'Как отменить заказ?', a: `
+        <p>Пока вы не выбрали водителя — кнопка <b>«Отменить заказ»</b> под заказом.</p>
+        <p>Если водитель уже едет, отменить в приложении пока нельзя. Позвоните ему кнопкой «Позвонить водителю» и предупредите.</p>` },
+      { q: 'Как позвонить водителю?', a: `
+        <p>Когда водитель выбран, под заказом появляется кнопка <b>«Позвонить водителю»</b>. Она есть, пока водитель едет к вам и ждёт на месте.</p>` },
+      { q: 'Водитель приехал — что дальше?', a: `
+        <p>Придёт уведомление, а на экране начнётся отсчёт: бесплатное ожидание — 3 минуты.</p>
+        <p>Нажмите <b>«Выхожу»</b>, чтобы водитель знал, что вы идёте.</p>` },
+      { q: 'Забыл вещь в машине', a: `
+        <p>В течение часа после поездки откройте в меню <b>«История заказов»</b> — у этой поездки будет кнопка «Забыли что-то? Позвонить водителю».</p>
+        <p>Если час прошёл, напишите в поддержку: укажите дату и маршрут поездки.</p>` },
+      { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER },
+      { q: 'Как установить ElvA на экран «Домой»?', a: HELP_INSTALL_ANSWER }
+    ],
+    driver: [
+      { q: 'Как взять заказ?', a: `
+        <p>Свободные заказы видны в <b>«Ленте заказов»</b>. Нажмите «Принять», оставьте цену пассажира или назовите свою, выберите время подачи и нажмите <b>«ОК»</b>.</p>
+        <p>Пассажир увидит ваше предложение рядом с предложениями других водителей и выберет.</p>` },
+      { q: 'Что значит «Свободен» и «Занят»?', a: `
+        <p>Переключатель отвечает только за уведомления о новых заказах, когда приложение свёрнуто. <b>«Свободен»</b> — уведомления приходят, <b>«Занят»</b> — нет.</p>
+        <p>Ленту видно и откликаться можно в любом режиме. Когда вы отправляете цену, переключатель сам встаёт на «Свободен».</p>` },
+      { q: 'Сколько ждать ответа пассажира?', a: `
+        <p>Предложение действует 3 минуты, рядом идёт отсчёт. Передумали — нажмите <b>«Отозвать предложение»</b>.</p>
+        <p>Если пассажир выбрал другого водителя, заказ просто исчезнет из ленты.</p>` },
+      { q: 'Пассажир выбрал меня — что дальше?', a: `
+        <p>Поезжайте по адресу. На месте нажмите <b>«Я на месте»</b> — пассажиру придёт уведомление, у него начнётся бесплатное ожидание 3 минуты.</p>
+        <p>Когда пассажир сел — <b>«Начать поездку»</b>, в конце — <b>«Завершить поездку»</b>. После этого оцените пассажира.</p>` },
+      { q: 'Как позвонить пассажиру?', a: `
+        <p>Кнопка <b>«Позвонить пассажиру»</b> есть, пока вы едете к нему и ждёте на месте.</p>
+        <p>Если пассажир что-то забыл, в течение часа после поездки позвонить можно из <b>«Моих поездок»</b> в меню.</p>` },
+      { q: 'Как отказаться от заказа?', a: `
+        <p>Пока пассажир не выбрал вас — <b>«Отозвать предложение»</b>.</p>
+        <p>Если пассажир вас уже выбрал, отказаться в приложении пока нельзя. Позвоните пассажиру, предупредите его и напишите в поддержку.</p>` },
+      { q: 'Где посмотреть заработок?', a: `
+        <p>В меню — <b>«История заказов»</b> (у водителя она называется «Мои поездки»). Поездки собраны по дням, у каждого дня — сумма.</p>` },
+      { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
+        <p>И проверьте, что переключатель над лентой стоит на <b>«Свободен»</b>.</p>` },
+      { q: 'Как установить ElvA на экран «Домой»?', a: HELP_INSTALL_ANSWER }
+    ]
+  };
+
+  function openHelp(){
+    closeMenu();
+    document.getElementById('view-passenger').hidden = true;
+    document.getElementById('view-driver').hidden = true;
+    document.getElementById('view-history').hidden = true;
+    renderHelp();
+    document.getElementById('view-help').hidden = false;
+    const scroller = document.querySelector('main');
+    if(scroller) scroller.scrollTop = 0;
+  }
+
+  function closeHelp(){
+    document.getElementById('view-help').hidden = true;
+    switchView(currentView);
+  }
+
+  function renderHelp(){
+    const isDriver = currentView === 'driver';
+    const list = HELP_FAQ[isDriver ? 'driver' : 'passenger'];
+    document.getElementById('view-help').innerHTML = `
+      <div class="history-head">
+        <button class="history-back" onclick="closeHelp()">← Назад</button>
+        <h1 class="view-title">Помощь</h1>
+      </div>
+      <p class="history-summary">${isDriver
+        ? 'Ответы для водителя. Вопросы пассажира — в роли пассажира.'
+        : 'Ответы для пассажира. Вопросы водителя — в роли водителя.'}</p>
+
+      <div class="faq-list">
+        ${list.map(item => `
+          <details class="faq-item">
+            <summary>${item.q}</summary>
+            <div class="faq-answer">${item.a}</div>
+          </details>
+        `).join('')}
+      </div>
+
+      <div class="order-card">
+        <div class="support-title">Не нашли ответ?</div>
+        <p class="support-text">Напишите нам на почту. Если вопрос о поездке, укажите её дату и маршрут.</p>
+        <div class="support-mail">${SUPPORT_EMAIL}</div>
+        <button class="btn-primary" onclick="writeSupport()">Написать письмо</button>
+        <button class="btn-call" onclick="copySupportEmail()">Скопировать адрес</button>
+      </div>
+
+      <div class="help-about">
+        ElvA, версия ${APP_VERSION}<br>
+        © 2026 Евсеев А.В.
+      </div>
+    `;
+  }
+
+  // Письмо открывается в почтовом приложении телефона. В конец письма сразу
+  // подставляем имя, номер и роль: поддержке так проще найти человека в базе.
+  function writeSupport(){
+    const role = currentView === 'driver' ? 'водитель' : 'пассажир';
+    const lines = [
+      '', '', '—',
+      'Имя: ' + ((myProfile && myProfile.name) || '—'),
+      'Номер в ElvA: ' + ((myProfile && myProfile.phone) || '—'),
+      'Роль: ' + role,
+      'Версия: ' + APP_VERSION
+    ];
+    window.location.href = 'mailto:' + SUPPORT_EMAIL
+      + '?subject=' + encodeURIComponent('Вопрос по ElvA')
+      + '&body=' + encodeURIComponent(lines.join('\n'));
+  }
+
+  // Запасной путь, если на телефоне не настроена почта: адрес в буфер обмена.
+  async function copySupportEmail(){
+    try{
+      await navigator.clipboard.writeText(SUPPORT_EMAIL);
+      showToast('Адрес скопирован');
+    } catch(e){
+      showToast(SUPPORT_EMAIL, 4000);
+    }
+  }
+
   // ---------- боковое меню и смена роли ----------
   // Меню сначала показываем (оно стоит за краем экрана), и только следующим
   // кадром включаем класс open — иначе браузер не увидит начального положения
@@ -2572,6 +2782,7 @@ void main(){
     currentView = view;
     if(view === 'driver') ensureDriverProfile();
     document.getElementById('view-history').hidden = true;
+    document.getElementById('view-help').hidden = true;
     document.getElementById('view-passenger').hidden = view !== 'passenger';
     document.getElementById('view-driver').hidden = view !== 'driver';
   }
