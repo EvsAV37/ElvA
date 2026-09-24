@@ -1124,7 +1124,40 @@ void main(){
   // ---------- state ----------
   let orders = []; // локальный кэш, синхронизируется с таблицей orders в Supabase
   let offers = []; // локальный кэш всех активных предложений водителей (order_offers)
-  let currentView = 'passenger';
+  // Роль при запуске. Сначала — из адреса (?role=driver): так приложение
+  // открывается по нажатию на уведомление. Иначе — последняя роль на этом
+  // телефоне: ушёл водителем — водителем и вернёшься. iOS часто выгружает
+  // свёрнутое приложение из памяти, так что «запуск заново» бывает постоянно.
+  const ROLE_KEY = 'elva_role';
+  function initialRole(){
+    let r = null;
+    try {
+      const q = new URLSearchParams(location.search).get('role');
+      if(q === 'driver' || q === 'passenger'){
+        r = q;
+        // Убираем ?role= из адреса, чтобы обновление страницы не возвращало
+        // эту роль снова после ручного переключения.
+        window.history.replaceState(null, '', location.pathname + location.hash);
+      }
+    } catch(e){}
+    if(!r){ try { r = localStorage.getItem(ROLE_KEY); } catch(e){} }
+    return r === 'driver' ? 'driver' : 'passenger';
+  }
+  function saveRole(r){ try { localStorage.setItem(ROLE_KEY, r); } catch(e){} }
+  let currentView = initialRole();
+
+  // Нажали на уведомление, а приложение уже было открыто (или свёрнуто
+  // в памяти): фоновый скрипт присылает сюда роль, в которой его открыть.
+  if('serviceWorker' in navigator){
+    navigator.serviceWorker.addEventListener('message', e => {
+      const d = e.data || {};
+      if(d.type !== 'elva-open-role') return;
+      if(d.role !== 'driver' && d.role !== 'passenger') return;
+      closeMenu();
+      if(appStarted) switchView(d.role);
+      else { currentView = d.role; saveRole(d.role); }
+    });
+  }
   let driverName = ''; // заполняется из профиля при загрузке (loadMyProfile)
   let etaSelectingId = null;
   let etaPriceDrafts = {};    // order_id -> строка цены, которую сейчас печатает водитель (переживает перерендер)
@@ -1426,7 +1459,9 @@ void main(){
   async function startApp(){
     document.getElementById('view-login').hidden = true;
     document.getElementById('burger-btn').classList.remove('ghost');
+    appStarted = true;
     switchView(currentView);
+    startPresence();
     initPush();
     await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles()]);
     try {
@@ -1435,6 +1470,51 @@ void main(){
     } catch(e){
       console.error('Realtime subscribe failed:', e);
     }
+  }
+
+  // ---------- «я сейчас в приложении» ----------
+  // Сервер не шлёт частые уведомления («Новый заказ», «Водитель предложил
+  // цену») тому, кто и так смотрит на ленту или на свой заказ. Для этого,
+  // пока открыт главный экран, приложение раз в 20 секунд отмечает в базе
+  // «я здесь, в такой-то роли», а при сворачивании, в истории и в помощи —
+  // «меня нет». Отметка живёт 30 секунд, так что даже если «меня нет» не
+  // успело дойти (iOS замораживает приложение мгновенно), тишина продлится
+  // недолго — и касается она только частых уведомлений, важные идут всегда.
+  const PRESENCE_EVERY_MS = 20000;
+  let appStarted = false;
+  let presenceSent = { role: undefined, at: 0 };
+  let presenceTimer = null;
+
+  function presenceRole(){
+    if(!appStarted || document.visibilityState !== 'visible') return null;
+    if(!document.getElementById('view-history').hidden) return null;
+    if(!document.getElementById('view-help').hidden) return null;
+    return currentView === 'driver' ? 'driver' : 'passenger';
+  }
+
+  // force — отправить сразу, даже если ничего не поменялось (смена роли,
+  // сворачивание). Без force повторяем «я здесь» не чаще раза в 20 секунд,
+  // а «меня нет» — только один раз.
+  function reportPresence(force, roleOverride){
+    if(!sb || !appStarted) return;
+    const role = roleOverride !== undefined ? roleOverride : presenceRole();
+    const now = Date.now();
+    if(!force && role === presenceSent.role
+       && (role === null || now - presenceSent.at < PRESENCE_EVERY_MS - 1000)) return;
+    presenceSent = { role, at: now };
+    sb.rpc('app_presence', { p_role: role }).then(({ error }) => {
+      if(error){
+        console.error('app_presence:', error.message);
+        presenceSent = { role: undefined, at: 0 };   // в следующий раз повторим
+      }
+    });
+  }
+
+  function startPresence(){
+    clearInterval(presenceTimer);
+    presenceTimer = setInterval(() => reportPresence(false), PRESENCE_EVERY_MS);
+    document.addEventListener('visibilitychange', () => reportPresence(true));
+    window.addEventListener('pagehide', () => reportPresence(true, null));
   }
 
   // ---------- push-уведомления ----------
@@ -2606,6 +2686,7 @@ void main(){
     document.getElementById('view-driver').hidden = true;
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-history').hidden = false;
+    reportPresence(true);
     renderHistory(true);
     await Promise.all([loadHistoryPage(), loadHistoryStats()]);
     renderHistory(false);
@@ -2784,7 +2865,8 @@ void main(){
       { q: 'Забыл вещь в машине', a: `
         <p>В течение часа после поездки откройте в меню <b>«История заказов»</b> — у этой поездки будет кнопка «Забыли что-то? Позвонить водителю».</p>
         <p>Если час прошёл, напишите в поддержку: укажите дату и маршрут поездки.</p>` },
-      { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER },
+      { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
+        <p>Пока вы смотрите на свой заказ, уведомления о новых предложениях не приходят: они и так появляются на экране.</p>` },
       { q: 'Как установить ElvA на экран «Домой»?', a: HELP_INSTALL_ANSWER }
     ],
     driver: [
@@ -2810,7 +2892,8 @@ void main(){
       { q: 'Где посмотреть заработок?', a: `
         <p>В меню — <b>«История заказов»</b> (у водителя она называется «Мои поездки»). Поездки собраны по дням, у каждого дня — сумма.</p>` },
       { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
-        <p>И проверьте, что переключатель над лентой стоит на <b>«Свободен»</b>.</p>` },
+        <p>Проверьте, что переключатель над лентой стоит на <b>«Свободен»</b>.</p>
+        <p>Пока лента открыта на экране, уведомления о новых заказах не приходят: заказы и так появляются в ленте.</p>` },
       { q: 'Как установить ElvA на экран «Домой»?', a: HELP_INSTALL_ANSWER }
     ]
   };
@@ -2822,6 +2905,7 @@ void main(){
     document.getElementById('view-history').hidden = true;
     renderHelp();
     document.getElementById('view-help').hidden = false;
+    reportPresence(true);
     const scroller = document.querySelector('main');
     if(scroller) scroller.scrollTop = 0;
   }
@@ -2957,7 +3041,9 @@ void main(){
   }
 
   function logoutFromMenu(){
-    sb.rpc('unlink_current_session').then(() => location.reload());
+    sb.rpc('app_presence', { p_role: null })
+      .then(() => sb.rpc('unlink_current_session'))
+      .then(() => location.reload());
   }
 
   function menuSoon(what){
@@ -2981,11 +3067,13 @@ void main(){
 
   function switchView(view){
     currentView = view;
+    saveRole(view);
     if(view === 'driver') ensureDriverProfile();
     document.getElementById('view-history').hidden = true;
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-passenger').hidden = view !== 'passenger';
     document.getElementById('view-driver').hidden = view !== 'driver';
+    reportPresence(true);
   }
 
   init();

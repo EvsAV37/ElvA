@@ -14,19 +14,29 @@ self.addEventListener('push', event => {
     icon: 'icon-192.png',
     tag: data.tag || undefined,        // одинаковый tag заменяет старое уведомление, а не копит их
     renotify: !!data.tag,
-    data: { url: data.url || './' }
+    data: { url: data.url || './', role: data.role || null }
   }));
 });
 
-// Нажали на уведомление — открываем приложение (или переключаемся в уже открытое).
+// Нажали на уведомление — открываем приложение (или переключаемся в уже
+// открытое) сразу в той роли, для которой уведомление: водителю — лента,
+// пассажиру — его заказ. Роль приходит с сервера (send-push).
 self.addEventListener('notificationclick', event => {
   event.notification.close();
-  const url = new URL(event.notification.data.url || './', self.registration.scope).href;
+  const data = event.notification.data || {};
+  const role = data.role === 'driver' || data.role === 'passenger' ? data.role : null;
+  const url = new URL(data.url || './', self.registration.scope).href;
   event.waitUntil((async () => {
     const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
     for (const w of wins) {
-      if (w.url.startsWith(self.registration.scope)) { await w.focus(); return; }
+      if (w.url.startsWith(self.registration.scope)) {
+        await w.focus();
+        // Приложение уже открыто — просим его переключить роль.
+        if (role) w.postMessage({ type: 'elva-open-role', role });
+        return;
+      }
     }
+    // Приложения нет в памяти — открываем адрес с ролью (./?role=driver).
     await self.clients.openWindow(url);
   })());
 });
