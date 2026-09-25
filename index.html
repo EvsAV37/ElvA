@@ -18,13 +18,28 @@
 <meta name="apple-mobile-web-app-title" content="ElvA">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#03070a">
-<!-- Шрифты подключены обычной ссылкой: так страница ждёт их и сразу
-     рисует текст нужным шрифтом. Фоновая загрузка (preload) здесь не
-     подходит — текст успевает мелькнуть системным шрифтом и на глазах
-     перерисовывается. -->
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Unbounded:wght@500;600;700&family=Manrope:wght@400;500;600;700&display=swap" rel="stylesheet">
+<!-- Шрифты лежат рядом с index.html (elva-manrope.woff2, elva-unbounded.woff2),
+     а не на сервере Google: страница не ждёт чужой сервер, поэтому первый
+     кадр рисуется сразу — без серой вспышки при запуске с экрана «Домой».
+     Файлы урезаны до русских и латинских букв и нужных начертаний.
+     font-display: block — пока шрифт не загрузился, текст не показывается
+     системным шрифтом, поэтому ничего не «дёргается». Грузятся они за доли
+     секунды, а заставка всё равно держится дольше.
+     Шрифты — Manrope и Unbounded, лицензия SIL Open Font License 1.1. -->
+<link rel="preload" href="elva-manrope.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="elva-unbounded.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face{
+    font-family: 'Manrope';
+    src: url('elva-manrope.woff2') format('woff2');
+    font-weight: 400 700; font-style: normal; font-display: block;
+  }
+  @font-face{
+    font-family: 'Unbounded';
+    src: url('elva-unbounded.woff2') format('woff2');
+    font-weight: 500 700; font-style: normal; font-display: block;
+  }
+</style>
 <style>
   :root{
     --night: #10142A;
@@ -391,15 +406,28 @@
   }
   .rating-badge.new{ color: var(--ice-dim); }
   .rating-label{ font-size: 13.5px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
-  .snowflakes{ display: flex; justify-content: center; gap: 6px; }
-  .snowflake{
+  /* Звёзды оценки. Звезда — своя картинка (SVG), а не символ ★: символа нет
+     в наших шрифтах, и на разных телефонах он выглядел бы по-разному. */
+  .rate-stars{ display: flex; justify-content: center; gap: 4px; }
+  .rate-star{
     appearance: none; border: none; background: transparent;
-    font-size: 26px; line-height: 1; cursor: pointer;
-    color: var(--line);
+    padding: 4px; line-height: 0; cursor: pointer;
+    color: rgba(237,239,245,0.16);
     transition: color 0.15s ease, transform 0.1s ease;
+    -webkit-tap-highlight-color: transparent;
   }
-  .snowflake:hover{ transform: scale(1.1); }
-  .snowflake.filled{ color: var(--ice); }
+  .rate-star svg{ width: 30px; height: 30px; }
+  .rate-star:hover:not(:disabled){ transform: scale(1.1); }
+  .rate-star.filled{ color: var(--amber); }
+  .rate-star:disabled{ cursor: default; }
+  .star-icon{ display: block; fill: currentColor; stroke: currentColor; stroke-width: 1.5; stroke-linejoin: round; }
+  .star-inline{
+    display: inline-block; width: 0.95em; height: 0.95em;
+    vertical-align: -0.12em; margin-right: 0.2em;
+    color: var(--amber);
+  }
+  .star-inline .star-icon{ width: 100%; height: 100%; }
+  @media (prefers-reduced-motion: reduce){ .rate-star{ transition: none; } }
   .rating-confirm{ margin-top: 20px; }
 
   .empty-state{
@@ -1211,12 +1239,22 @@ void main(){
   let driverProfiles = {};
   let passengerProfiles = {};
 
+  // Звезда оценки (раньше была снежинка ❄).
+  const STAR_SVG = '<svg class="star-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.2l2.7 5.5 6 .9-4.35 4.25 1.03 6-5.38-2.83-5.38 2.83 1.03-6L3.3 9.6l6-.9z"/></svg>';
+  const STAR_INLINE = '<span class="star-inline">' + STAR_SVG + '</span>';
+
+  // Пять звёзд для выбора оценки. selected — сколько закрашено;
+  // pick(n) — вызов по нажатию; без него звёзды только показываются.
+  function rateStars(selected, pick){
+    return [1,2,3,4,5].map(n => `<button class="rate-star ${selected && n <= selected ? 'filled' : ''}" aria-label="Оценка ${n} из 5" ${pick ? `onclick="${pick(n)}"` : 'disabled'}>${STAR_SVG}</button>`).join('');
+  }
+
   function ratingBadge(profile){
     if(!profile || !profile.count){
       return `<span class="rating-badge new">новый</span>`;
     }
     const avg = (profile.sum / profile.count).toFixed(1);
-    return `<span class="rating-badge">❄ ${avg} · ${profile.count}</span>`;
+    return `<span class="rating-badge">${STAR_INLINE}${avg} · ${profile.count}</span>`;
   }
 
   // Строка из Supabase (snake_case) -> объект заказа, с которым работает остальной код
@@ -2183,10 +2221,9 @@ void main(){
         ${order.status === 'done' ? `
           <div class="rating-block">
             <div class="rating-label">${order.rating ? 'Спасибо за оценку!' : 'Как прошла поездка?'}</div>
-            <div class="snowflakes">
-              ${[1,2,3,4,5].map(n => `
-                <button class="snowflake ${(order.rating || ratingDrafts[order.id]) && n <= (order.rating || ratingDrafts[order.id]) ? 'filled' : ''}" ${order.rating ? 'disabled' : `onclick="selectOrderRating(${order.id}, ${n})"`}>❄</button>
-              `).join('')}
+            <div class="rate-stars">
+              ${rateStars(order.rating || ratingDrafts[order.id],
+                order.rating ? null : n => `selectOrderRating(${order.id}, ${n})`)}
             </div>
             ${!order.rating ? `<button class="btn-accept rating-confirm" onclick="confirmRateOrder(${order.id})" ${!ratingDrafts[order.id] ? 'disabled' : ''}>Оценить</button>` : ''}
           </div>
@@ -2463,8 +2500,8 @@ void main(){
           <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
           <div class="rating-block">
             <div class="rating-label">Как прошла поездка с пассажиром?</div>
-            <div class="snowflakes">
-              ${[1,2,3,4,5].map(n => `<button class="snowflake ${ratingDrafts[o.id] && n <= ratingDrafts[o.id] ? 'filled' : ''}" onclick="selectPassengerRating(${o.id}, ${n})">❄</button>`).join('')}
+            <div class="rate-stars">
+              ${rateStars(ratingDrafts[o.id], n => `selectPassengerRating(${o.id}, ${n})`)}
             </div>
             <button class="btn-accept rating-confirm" onclick="confirmRatePassenger(${o.id})" ${!ratingDrafts[o.id] ? 'disabled' : ''}>Оценить</button>
           </div>
@@ -2763,7 +2800,7 @@ void main(){
         <div class="order-meta">
           ${isDriver && cancelled ? 'Без оплаты' : `<span class="order-price">${esc(o.price)} ₽</span>`}
           ${who ? ' · ' + who : ''}
-          ${myRating ? ' · ваша оценка ❄ ' + myRating : ''}
+          ${myRating ? ' · ваша оценка ' + STAR_INLINE + myRating : ''}
         </div>
         ${isWithinCallGrace(o) ? `
           <button class="btn-call" onclick="callCounterpart(${o.id})">
@@ -3020,8 +3057,8 @@ void main(){
     const count = profile ? profile.count : 0;
     const avg = count ? (profile.sum / count) : null;
 
-    document.getElementById('menu-rating').textContent = avg
-      ? `❄ ${avg.toFixed(1)} · ${count} ${pluralTrips(count)}`
+    document.getElementById('menu-rating').innerHTML = avg
+      ? `${STAR_INLINE}${avg.toFixed(1)} · ${count} ${pluralTrips(count)}`
       : 'Пока нет оценок';
     document.getElementById('menu-role-note').textContent = isDriver ? 'Вы водитель' : 'Вы пассажир';
     document.getElementById('menu-role-switch').textContent = isDriver ? 'Стать пассажиром' : 'Стать водителем';
