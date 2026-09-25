@@ -1292,6 +1292,7 @@ void main(){
       completedAt: row.completed_at,
       cancelledAt: row.cancelled_at,
       cancelledBy: row.cancelled_by,
+      completedBy: row.completed_by,
       createdAt: row.created_at
     };
   }
@@ -1325,7 +1326,7 @@ void main(){
         .or([
           'status.in.(searching,accepted,arrived,in_progress)',
           `and(status.eq.done,completed_at.gte.${recentCutoff})`,
-          `and(status.eq.cancelled,cancelled_by.eq.driver,cancelled_at.gte.${cancelCutoff})`
+          `and(status.eq.cancelled,cancelled_by.in.(driver,admin),cancelled_at.gte.${cancelCutoff})`
         ].join(','))
         .order('id', { ascending: true });
       if(error){
@@ -2197,7 +2198,7 @@ void main(){
 
   function driverCancelledNotice(){
     const list = orders.filter(o => o.passengerId === passengerId
-      && o.status === 'cancelled' && o.cancelledBy === 'driver'
+      && o.status === 'cancelled' && (o.cancelledBy === 'driver' || o.cancelledBy === 'admin')
       && !cancelSeen.includes(o.id));
     if(!list.length) return null;
     const last = list[list.length - 1];
@@ -2228,10 +2229,11 @@ void main(){
       const cancelled = driverCancelledNotice();
       if(cancelled){
         setHtml(el, `
-          <h1 class="view-title order-title">Водитель отменил поездку</h1>
+          <h1 class="view-title order-title">${cancelled.cancelledBy === 'admin' ? 'Заказ отменён поддержкой' : 'Водитель отменил поездку'}</h1>
           <div class="order-card">
             <div class="order-route">${esc(cancelled.from)}<span class="arrow">→</span>${esc(cancelled.to)}</div>
             <div class="order-meta">${cancelled.driverName ? esc(cancelled.driverName) + ' · ' : ''}<span class="order-price">${esc(cancelled.price)} ₽</span></div>
+            ${cancelled.cancelledBy === 'admin' ? `<p class="support-text">Если есть вопросы, напишите в поддержку: ${SUPPORT_EMAIL}</p>` : ''}
             <p class="support-text">Можно заказать снова: адреса и цена подставятся сами.</p>
             <button class="btn-primary" onclick="reorderFromCancelled(${cancelled.id})">Заказать снова</button>
             <button class="btn-ghost cancel-close" onclick="dismissCancelNotice(${cancelled.id})">Закрыть</button>
@@ -2878,7 +2880,7 @@ void main(){
     const cancelled = o.status === 'cancelled';
     const myRating = isDriver ? o.driverRating : o.rating;
     const who = isDriver ? '' : (o.driverName ? esc(o.driverName) : '');
-    let statusLabel = 'Выполнен';
+    let statusLabel = o.completedBy === 'admin' ? 'Завершено поддержкой' : 'Выполнен';
     if(cancelled){
       statusLabel = isDriver
         ? (o.cancelledBy === 'admin' ? 'Отменено поддержкой' : o.cancelledBy === 'passenger' ? 'Отменил пассажир' : 'Вы отменили')

@@ -164,6 +164,58 @@
     font-family: inherit; font-size: 16px;
   }
   textarea:focus{ outline: none; border-color: var(--ice-dim); }
+  /* Заказы */
+  .orders-head{ display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+  .orders-head .link{ margin: 0; }
+  .order{ border-top: 1px solid var(--line); padding: 14px 0; }
+  .order:first-of-type{ border-top: none; }
+  .order.stuck{
+    border: 1px solid rgba(232,115,123,0.5); border-radius: 12px;
+    padding: 12px; margin: 8px 0; background: rgba(232,115,123,0.06);
+  }
+  .order .who-line{ font-size: 13.5px; margin-top: 4px; }
+  .order .who-line a{ color: var(--muted); text-decoration: none; }
+  .order-actions{ display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+  .btn-sm{
+    padding: 9px 12px; border-radius: 10px; font-weight: 700; font-size: 13px;
+    border: 1px solid var(--line); background: var(--surface-2); color: var(--text);
+  }
+  .btn-sm.danger{ color: var(--danger); border-color: rgba(232,115,123,0.45); }
+  .stuck-badge{ color: var(--danger); font-weight: 700; font-size: 12.5px; }
+  .people-empty{ text-align: center; color: var(--muted); padding: 40px 12px; }
+
+  /* ===== Компьютер: меню слева, содержимое справа, карточка рядом с поиском ===== */
+  .people-split{ display: block; }
+  #people-right:empty{ display: none; }
+  @media (min-width: 900px){
+    .shell{ max-width: 1240px; padding: 28px 32px 48px; }
+    #screen-login .card, #screen-recovery .card{ max-width: 420px; }
+    #screen-panel:not([hidden]){
+      display: grid;
+      grid-template-columns: 200px minmax(0, 1fr);
+      grid-template-areas: "head who" "nav body";
+      column-gap: 32px; row-gap: 8px; align-items: start;
+    }
+    #screen-panel > h1{ grid-area: head; align-self: center; }
+    #screen-panel > .who{ grid-area: who; margin-top: 0; justify-content: flex-end; gap: 20px; }
+    #screen-panel > .tabs{
+      grid-area: nav; flex-direction: column; margin: 8px 0 0; padding: 0; overflow: visible;
+      position: sticky; top: 20px;
+    }
+    #screen-panel > .tabs .tab{ text-align: left; border-radius: 10px; padding: 11px 14px; font-size: 14.5px; }
+    #tab-body{ grid-area: body; min-width: 0; }
+    .card{ margin-top: 8px; }
+    .people-split{ display: grid; grid-template-columns: minmax(300px, 380px) minmax(0, 1fr); gap: 20px; align-items: start; }
+    #people-right:empty{ display: block; }
+    #people-left{ position: sticky; top: 20px; }
+    .person-grid{ display: grid; grid-template-columns: 1fr 1fr; gap: 0 16px; align-items: start; }
+    .person-grid > .wide{ grid-column: 1 / -1; }
+    .orders-grid{ display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 0 20px; }
+    .orders-grid .order{ border-top: 1px solid var(--line); }
+    .row.click:hover{ background: rgba(255,255,255,0.03); }
+    .row.click.sel{ background: rgba(143,224,232,0.07); border-radius: 8px; }
+    .people-mobile-back{ display: none; }
+  }
   [hidden]{ display: none !important; }
 </style>
 </head>
@@ -320,7 +372,7 @@
   // Люди, Заказы и Цифры появятся в следующих частях.
   const TABS = [
     { id: 'people',  title: 'Люди',   render: renderPeople },
-    { id: 'orders',  title: 'Заказы', render: () => soon('Активные и зависшие заказы, отмена — в части 4.') },
+    { id: 'orders',  title: 'Заказы', render: renderOrders },
     { id: 'stats',   title: 'Цифры',  render: () => soon('Заказы, отмены, новые люди, водители в сети — в части 5.') },
     { id: 'log',     title: 'Журнал', render: renderLog },
     { id: 'admins',  title: 'Админы', render: renderAdmins },
@@ -334,6 +386,7 @@
   }
   function openTab(id){
     currentTab = id;
+    clearInterval(ordersTimer);
     renderTabs();
     const tab = TABS.find(t => t.id === id) || TABS[0];
     $('tab-body').innerHTML = '';
@@ -348,6 +401,8 @@
     login: 'Вход в панель',
     password_changed: 'Сменил пароль',
     view_person: 'Открыл карточку',
+    order_cancel: 'Отменил заказ',
+    order_complete: 'Завершил заказ',
     ban: 'Заблокировал',
     unban: 'Снял блокировку'
   };
@@ -382,8 +437,11 @@
   let peopleQuery = '';
   let peopleResults = null;
 
+  const isWide = () => window.matchMedia('(min-width: 900px)').matches;
+  let selectedPersonId = null;
+
   function renderPeople(){
-    $('tab-body').innerHTML = `<div class="card">
+    $('tab-body').innerHTML = `<div class="people-split"><div id="people-left"><div class="card">
       <h2>Поиск человека</h2>
       <div class="search-row">
         <input id="p-q" type="search" placeholder="Номер или имя" autocomplete="off" value="${esc(peopleQuery)}">
@@ -391,9 +449,11 @@
       </div>
       <div class="note" style="border:none;margin-top:8px;padding-top:0">Номер можно в любом виде или последние цифры, имя — частью.</div>
       <div id="p-results"></div>
-    </div>`;
+    </div></div><div id="people-right">${isWide()
+      ? '<div class="card people-empty">Найдите человека и выберите его в списке слева.</div>' : ''}</div></div>`;
     $('p-q').addEventListener('keydown', e => { if(e.key === 'Enter') doSearch(); });
     if(peopleResults) showResults(peopleResults);
+    if(isWide() && selectedPersonId) openPerson(selectedPersonId);
   }
 
   async function doSearch(){
@@ -413,7 +473,7 @@
     if(!box) return;
     if(!list.length){ box.innerHTML = '<div class="msg muted">Никого не нашли.</div>'; return; }
     box.innerHTML = `<div style="margin-top:8px">` + list.map(p => `
-      <div class="row click" onclick="openPerson('${p.id}')">
+      <div class="row click ${p.id === selectedPersonId ? 'sel' : ''}" onclick="openPerson('${p.id}')">
         <div class="row-main">${esc(p.name || 'Без имени')}${p.is_driver ? '<span class="tag amber">водитель</span>' : ''}${
           p.ban_scope ? `<span class="tag red">${p.ban_scope === 'all' ? 'заблокирован' : 'бан водителя'}</span>` : ''}</div>
         <div class="row-sub">${esc(p.phone)} · с ${esc(fmtDate(p.created_at))}${p.last_active_at ? ' · был ' + esc(fmtTime(p.last_active_at)) : ''}</div>
@@ -552,11 +612,31 @@
     openPerson(p.id);
   }
 
+  // Куда выводить карточку: на компьютере — справа от поиска,
+  // на телефоне — вместо поиска, с кнопкой «← К поиску».
+  function personTarget(){
+    if(isWide()){
+      if(currentTab !== 'people' || !$('people-right')){ currentTab = 'people'; renderTabs(); renderPeopleShell(); }
+      return $('people-right');
+    }
+    if(currentTab !== 'people'){ currentTab = 'people'; renderTabs(); clearInterval(ordersTimer); }
+    return $('tab-body');
+  }
+  function renderPeopleShell(){
+    const keep = selectedPersonId; selectedPersonId = null;
+    renderPeople();
+    selectedPersonId = keep;
+  }
+  const BACK = () => isWide() ? '' : `<button class="back" onclick="renderPeople()">← К поиску</button>`;
+
   async function openPerson(id){
-    $('tab-body').innerHTML = `<button class="back" onclick="renderPeople()">← К поиску</button><div class="card"><div class="msg muted">Загружаем…</div></div>`;
+    selectedPersonId = id;
+    if(isWide() && peopleResults) showResults(peopleResults);
+    const target = personTarget();
+    target.innerHTML = `${BACK()}<div class="card"><div class="msg muted">Загружаем…</div></div>`;
     const { data, error } = await sb.rpc('admin_person', { p_id: id });
     if(error){
-      $('tab-body').innerHTML = `<button class="back" onclick="renderPeople()">← К поиску</button><div class="card"><div class="msg error">Ошибка: ${esc(error.message)}</div></div>`;
+      target.innerHTML = `${BACK()}<div class="card"><div class="msg error">Ошибка: ${esc(error.message)}</div></div>`;
       return;
     }
     currentPerson = data;
@@ -564,10 +644,10 @@
     const inAppNow = p.app_seen_at && (Date.now() - Date.parse(p.app_seen_at) < 30000);
     const tel = String(p.phone || '').replace(/[^\d+]/g, '');
 
-    $('tab-body').innerHTML = `
-      <button class="back" onclick="renderPeople()">← К поиску</button>
-
-      <div class="card">
+    target.innerHTML = `
+      ${BACK()}
+      <div class="person-grid">
+      <div class="card wide">
         <h2>${esc(p.name || 'Без имени')}${drv ? '<span class="tag amber">водитель</span>' : ''}${
           data.active_ban ? `<span class="tag red">${data.active_ban.scope === 'all' ? 'заблокирован' : 'бан водителя'}</span>` : ''}</h2>
         <a class="phone-link" href="tel:${esc(tel)}">${esc(p.phone)}</a>
@@ -581,8 +661,8 @@
         </dl>
       </div>
 
-      <div id="ban-slot">${banSection(data)}</div>
-      ${historySection(data)}
+      <div id="ban-slot" class="wide">${banSection(data)}</div>
+      ${historySection(data) ? `<div class="wide">${historySection(data)}</div>` : ''}
 
       <div class="card">
         <h2>Как пассажир</h2>
@@ -597,7 +677,7 @@
         <div class="stat-line">Уведомления о заказах: ${drv.is_available ? 'включены («Свободен»)' : 'выключены («Занят»)'}</div>
       </div>` : ''}
 
-      <div class="card">
+      <div class="card wide">
         <h2>Последние заказы</h2>
         ${data.orders.length ? data.orders.map(o => `
           <div class="row">
@@ -607,7 +687,91 @@
                 ? ` · ${o.role === 'driver' ? 'пассажир' : 'водитель'}: <button class="link-inline" onclick="openPerson('${esc(o.other_id)}')">${esc(o.other_name || 'без имени')}</button>`
                 : ''}</div>
           </div>`).join('') : '<div class="muted small">Заказов пока нет.</div>'}
+      </div>
       </div>`;
+  }
+
+  // ---------- заказы ----------
+  // Список живых заказов. Пока вкладка открыта, обновляется раз в 30 секунд.
+  const ORDER_STATUS = {
+    searching:   'Ищет водителя',
+    accepted:    'Водитель едет',
+    arrived:     'Водитель на месте',
+    in_progress: 'В пути'
+  };
+  let ordersTimer = null;
+
+  function ago(ts){
+    const min = Math.max(0, Math.round((Date.now() - Date.parse(ts)) / 60000));
+    if(min < 60) return min + ' мин';
+    const h = Math.floor(min / 60), m = min % 60;
+    return h + ' ч' + (m ? ' ' + m + ' мин' : '');
+  }
+
+  async function renderOrders(){
+    clearInterval(ordersTimer);
+    if(!$('orders-list')){
+      $('tab-body').innerHTML = `<div class="card">
+        <div class="orders-head"><h2 style="margin:0">Активные заказы</h2>
+          <button class="link" onclick="renderOrders()">Обновить</button></div>
+        <div class="note" style="border:none;margin-top:4px;padding-top:0">Красным — зависшие: поиск дольше 30 мин, водитель едет или ждёт дольше 2 ч, в пути дольше 3 ч.</div>
+        <div id="orders-list" class="muted small">Загружаем…</div>
+      </div>`;
+    }
+    const { data, error } = await sb.rpc('admin_active_orders');
+    const box = $('orders-list');
+    if(!box) return;
+    if(error){ box.textContent = 'Ошибка: ' + error.message; return; }
+    box.classList.remove('muted', 'small');
+    if(!data.length){
+      box.innerHTML = '<div class="muted" style="padding:16px 0">Сейчас активных заказов нет.</div>';
+    } else {
+      const stuck = data.filter(o => o.stuck).length;
+      box.innerHTML = (stuck ? `<div class="stuck-badge" style="margin:6px 0">Зависших: ${stuck}</div>` : '')
+        + `<div class="orders-grid">` + data.map(orderRow).join('') + `</div>`;
+    }
+    ordersTimer = setInterval(() => { if(currentTab === 'orders') renderOrders(); else clearInterval(ordersTimer); }, 30000);
+  }
+
+  function personLink(id, name, phone, role){
+    if(!id) return `<span class="muted">${role}: —</span>`;
+    const tel = String(phone || '').replace(/[^\d+]/g, '');
+    return `${role}: <button class="link-inline" onclick="openPerson('${esc(id)}')">${esc(name || 'без имени')}</button>`
+      + (phone ? ` · <a href="tel:${esc(tel)}">${esc(phone)}</a>` : '');
+  }
+
+  function orderRow(o){
+    return `<div class="order ${o.stuck ? 'stuck' : ''}">
+      <div class="row-main">${esc(o.from_address)} → ${esc(o.to_address)}</div>
+      <div class="row-sub">№${o.id} · ${esc(o.price)} ₽ · <span class="order-status live">${esc(ORDER_STATUS[o.status] || o.status)}</span> уже ${esc(ago(o.status_since))}${
+        o.stuck ? ' · <span class="stuck-badge">завис</span>' : ''}${
+        o.status === 'searching' ? ' · предложений: ' + o.offers : ''}</div>
+      ${o.comment ? `<div class="row-sub">Комментарий: ${esc(o.comment)}</div>` : ''}
+      <div class="who-line">${personLink(o.passenger_id, o.passenger_name, o.passenger_phone, 'Пассажир')}</div>
+      <div class="who-line">${o.driver_id ? personLink(o.driver_id, o.driver_name, o.driver_phone, 'Водитель') : '<span class="muted">Водитель ещё не выбран</span>'}</div>
+      <div class="order-actions">
+        <button class="btn-sm danger" onclick="adminCancelOrder(${o.id})">Отменить</button>
+        ${o.status !== 'searching' ? `<button class="btn-sm" onclick="adminCompleteOrder(${o.id})">Завершить как выполненный</button>` : ''}
+      </div>
+    </div>`;
+  }
+
+  async function adminCancelOrder(id){
+    const reason = prompt(`Отменить заказ №${id}? Пассажир и водитель получат уведомление «Заказ отменён поддержкой».\n\nПричина (видят только админы):`);
+    if(reason === null) return;
+    if(!reason.trim()){ alert('Без причины отменить нельзя.'); return; }
+    const { error } = await sb.rpc('admin_order_cancel', { p_order_id: id, p_reason: reason.trim() });
+    if(error){ alert('Не получилось: ' + error.message); return; }
+    renderOrders();
+  }
+
+  async function adminCompleteOrder(id){
+    const reason = prompt(`Завершить заказ №${id} как выполненный? Он уйдёт в историю как обычная поездка.\n\nПричина (видят только админы):`);
+    if(reason === null) return;
+    if(!reason.trim()){ alert('Без причины завершить нельзя.'); return; }
+    const { error } = await sb.rpc('admin_order_complete', { p_order_id: id, p_reason: reason.trim() });
+    if(error){ alert('Не получилось: ' + error.message); return; }
+    renderOrders();
   }
 
   // ---------- администраторы ----------
