@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<style>html, body{ background: #03070a; }</style>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#03070a">
+<title>ElvA · Админ-панель</title>
+<link rel="preload" href="elva-manrope.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="elva-unbounded.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+  @font-face{
+    font-family: 'Manrope';
+    src: url('elva-manrope.woff2') format('woff2');
+    font-weight: 400 700; font-style: normal; font-display: block;
+  }
+  @font-face{
+    font-family: 'Unbounded';
+    src: url('elva-unbounded.woff2') format('woff2');
+    font-weight: 500 700; font-style: normal; font-display: block;
+  }
+  :root{
+    --night: #10142A;
+    --surface: #1A2044;
+    --surface-2: #232B58;
+    --ice: #8FE0E8;
+    --ice-dim: #5C7A8A;
+    --amber: #F2A65A;
+    --text: #EDEFF5;
+    --muted: #8089AC;
+    --success: #7FD9A6;
+    --danger: #E8737B;
+    --line: rgba(237,239,245,0.09);
+    --radius: 16px;
+  }
+  *{ box-sizing: border-box; }
+  html{ background: #03070a; -webkit-text-size-adjust: 100%; }
+  body{
+    margin: 0; min-height: 100vh;
+    background: var(--night);
+    color: var(--text);
+    font-family: 'Manrope', system-ui, sans-serif;
+    font-size: 15px; line-height: 1.5;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
+  }
+  .shell{ max-width: 560px; margin: 0 auto; padding: 18px 16px 40px; }
+  h1, h2{ font-family: 'Unbounded', sans-serif; font-weight: 600; margin: 0; }
+  h1{ font-size: 22px; }
+  h2{ font-size: 17px; margin-bottom: 12px; }
+  .brand{ color: var(--ice); }
+  .muted{ color: var(--muted); }
+  .small{ font-size: 13px; }
+
+  .card{
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 18px;
+    margin-top: 14px;
+  }
+  label{ display: block; font-size: 13px; color: var(--muted); font-weight: 600; margin: 12px 0 6px; }
+  input{
+    width: 100%; padding: 13px 14px;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 12px;
+    font-family: inherit; font-size: 16px;
+  }
+  input:focus{ outline: none; border-color: var(--ice-dim); }
+  button{ font-family: inherit; cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .btn{
+    width: 100%; margin-top: 16px; padding: 14px;
+    border: none; border-radius: 12px;
+    background: var(--ice); color: #0b2226;
+    font-weight: 700; font-size: 15px;
+  }
+  .btn:disabled{ opacity: 0.5; cursor: default; }
+  .btn-ghost{
+    width: 100%; margin-top: 10px; padding: 12px;
+    background: transparent; color: var(--muted);
+    border: 1px solid var(--line); border-radius: 12px;
+    font-weight: 600; font-size: 14px;
+  }
+  .link{ background: none; border: none; color: var(--ice); font-weight: 600; font-size: 14px; padding: 8px 0; margin-top: 8px; }
+  .msg{ margin-top: 12px; font-size: 14px; line-height: 1.5; }
+  .msg.error{ color: var(--danger); }
+  .msg.ok{ color: var(--success); }
+
+  /* Шапка и вкладки */
+  .who{
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    margin-top: 6px; font-size: 13px; color: var(--muted);
+  }
+  .who span{ overflow: hidden; text-overflow: ellipsis; white-space: nowrap; min-width: 0; }
+  .who .link{ margin: 0; padding: 4px 0; flex-shrink: 0; }
+  .tabs{
+    display: flex; gap: 8px; overflow-x: auto; margin: 16px -16px 0; padding: 0 16px 4px;
+    scrollbar-width: none;
+  }
+  .tabs::-webkit-scrollbar{ display: none; }
+  .tab{
+    flex-shrink: 0; padding: 9px 14px; border-radius: 999px;
+    background: var(--surface); border: 1px solid var(--line);
+    color: var(--muted); font-weight: 600; font-size: 13.5px;
+  }
+  .tab.active{ background: var(--surface-2); color: var(--ice); border-color: var(--ice-dim); }
+
+  /* Списки */
+  .row{ padding: 12px 0; border-bottom: 1px solid var(--line); }
+  .row:last-child{ border-bottom: none; }
+  .row-main{ font-weight: 600; }
+  .row-sub{ font-size: 13px; color: var(--muted); margin-top: 2px; }
+  .soon{ text-align: center; color: var(--muted); padding: 28px 8px; }
+  .note{
+    font-size: 13px; color: var(--muted); line-height: 1.6;
+    border-top: 1px solid var(--line); margin-top: 14px; padding-top: 12px;
+  }
+  .note code{ color: var(--text); font-size: 12.5px; }
+  [hidden]{ display: none !important; }
+</style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- ===== Вход ===== -->
+  <section id="screen-login" hidden>
+    <h1><span class="brand">ElvA</span> · админ</h1>
+    <div class="card">
+      <label for="l-email">Почта</label>
+      <input id="l-email" type="email" autocomplete="username" inputmode="email">
+      <label for="l-pass">Пароль</label>
+      <input id="l-pass" type="password" autocomplete="current-password">
+      <button class="btn" id="l-btn" onclick="doLogin()">Войти</button>
+      <button class="link" onclick="doForgot()">Забыли пароль?</button>
+      <div class="msg" id="l-msg"></div>
+    </div>
+  </section>
+
+  <!-- ===== Новый пароль по ссылке из письма ===== -->
+  <section id="screen-recovery" hidden>
+    <h1><span class="brand">ElvA</span> · новый пароль</h1>
+    <div class="card">
+      <label for="r-pass">Новый пароль</label>
+      <input id="r-pass" type="password" autocomplete="new-password">
+      <label for="r-pass2">Ещё раз</label>
+      <input id="r-pass2" type="password" autocomplete="new-password">
+      <button class="btn" onclick="doRecoverySave()">Сохранить</button>
+      <div class="msg" id="r-msg"></div>
+    </div>
+  </section>
+
+  <!-- ===== Панель ===== -->
+  <section id="screen-panel" hidden>
+    <h1><span class="brand">ElvA</span> · админ</h1>
+    <div class="who" id="who"></div>
+    <nav class="tabs" id="tabs"></nav>
+    <div id="tab-body"></div>
+  </section>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+  // ---------- настройки ----------
+  // Те же адрес и ключ, что в index.html (ключ публичный, данные защищает база).
+  const SUPABASE_URL = 'https://uoqaaemktxcumcsdmhpj.supabase.co';
+  const SUPABASE_ANON_KEY = 'sb_publishable_58ozWUWGOSBIC6A0CUMQjw_ZBkPKXss';
+  const MIN_PASSWORD = 10;
+
+  // storageKey — свой, не как у приложения: если в одном Safari открыты и
+  // приложение, и панель, они не «выкидывают» друг друга.
+  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    auth: { storageKey: 'elva-admin-auth', persistSession: true, detectSessionInUrl: true }
+  });
+
+  let me = { email: '' };
+  // Открыли по ссылке из письма «сбросить пароль» — в адресе будет type=recovery.
+  let recoveryMode = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+
+  // ---------- мелочи ----------
+  const $ = id => document.getElementById(id);
+  function esc(s){
+    return String(s ?? '').replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+  }
+  function show(screen){
+    for(const id of ['screen-login', 'screen-recovery', 'screen-panel']) $(id).hidden = id !== screen;
+  }
+  function msg(id, text, kind){
+    const el = $(id);
+    el.textContent = text || '';
+    el.className = 'msg' + (kind ? ' ' + kind : '');
+  }
+  function fmtTime(ts){
+    if(!ts) return '—';
+    return new Date(ts).toLocaleString('ru-RU', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  }
+  // Ошибки входа — по-русски.
+  function authError(e){
+    const m = (e && e.message || '').toLowerCase();
+    if(m.includes('invalid login')) return 'Неверная почта или пароль.';
+    if(m.includes('rate') || m.includes('too many')) return 'Слишком много попыток. Подождите несколько минут.';
+    if(m.includes('not confirmed')) return 'Почта не подтверждена. Подтвердите её в Supabase (Authentication → Users).';
+    if(m.includes('should be different') || m.includes('same')) return 'Новый пароль должен отличаться от старого.';
+    if(m.includes('weak') || m.includes('at least')) return 'Пароль слишком простой. Возьмите длиннее и сложнее.';
+    return 'Ошибка: ' + (e && e.message || 'неизвестная');
+  }
+
+  // ---------- вход ----------
+  async function doLogin(){
+    const email = $('l-email').value.trim();
+    const password = $('l-pass').value;
+    if(!email || !password){ msg('l-msg', 'Введите почту и пароль.', 'error'); return; }
+    $('l-btn').disabled = true;
+    msg('l-msg', 'Входим…');
+    const { error } = await sb.auth.signInWithPassword({ email, password });
+    $('l-btn').disabled = false;
+    if(error){ msg('l-msg', authError(error), 'error'); return; }
+    $('l-pass').value = '';
+    await enterPanel();
+  }
+
+  // Ссылка для сброса пароля придёт на почту и откроет эту же страницу.
+  async function doForgot(){
+    const email = $('l-email').value.trim();
+    if(!email){ msg('l-msg', 'Сначала впишите почту — на неё придёт ссылка.', 'error'); return; }
+    const redirectTo = location.origin + location.pathname;
+    const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
+    if(error){ msg('l-msg', authError(error), 'error'); return; }
+    msg('l-msg', 'Если эта почта — администратора, на неё придёт письмо со ссылкой. Проверьте и папку «Спам».', 'ok');
+  }
+
+  async function doRecoverySave(){
+    const p1 = $('r-pass').value, p2 = $('r-pass2').value;
+    if(p1.length < MIN_PASSWORD){ msg('r-msg', `Пароль — не короче ${MIN_PASSWORD} символов.`, 'error'); return; }
+    if(p1 !== p2){ msg('r-msg', 'Пароли не совпадают.', 'error'); return; }
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    if(error){ msg('r-msg', authError(error), 'error'); return; }
+    recoveryMode = false;
+    history.replaceState(null, '', location.pathname);
+    try { await sb.rpc('admin_note_password_changed'); } catch(e){}
+    await enterPanel();
+  }
+
+  async function doLogout(){
+    await sb.auth.signOut();
+    me = { email: '' };
+    show('screen-login');
+    msg('l-msg', '');
+  }
+
+  // Вошли. Спрашиваем базу, админ ли это. Если нет — выходим.
+  async function enterPanel(){
+    const { data, error } = await sb.rpc('admin_whoami');
+    const row = data && data[0];
+    if(error || !row || !row.is_admin){
+      await sb.auth.signOut();
+      show('screen-login');
+      msg('l-msg', error ? 'Не удалось проверить права: ' + error.message
+                         : 'У этой учётной записи нет прав администратора.', 'error');
+      return;
+    }
+    me = { email: row.email };
+    $('who').innerHTML = '<span>' + esc(me.email) + '</span><button class="link" onclick="doLogout()">Выйти</button>';
+    show('screen-panel');
+    renderTabs();
+    openTab(currentTab);
+  }
+
+  // ---------- вкладки ----------
+  // Люди, Заказы и Цифры появятся в следующих частях.
+  const TABS = [
+    { id: 'people',  title: 'Люди',   render: () => soon('Поиск человека по номеру и имени, карточка, блокировка — в частях 2 и 3.') },
+    { id: 'orders',  title: 'Заказы', render: () => soon('Активные и зависшие заказы, отмена — в части 4.') },
+    { id: 'stats',   title: 'Цифры',  render: () => soon('Заказы, отмены, новые люди, водители в сети — в части 5.') },
+    { id: 'log',     title: 'Журнал', render: renderLog },
+    { id: 'admins',  title: 'Админы', render: renderAdmins },
+    { id: 'account', title: 'Пароль', render: renderAccount }
+  ];
+  let currentTab = 'log';
+
+  function renderTabs(){
+    $('tabs').innerHTML = TABS.map(t =>
+      `<button class="tab ${t.id === currentTab ? 'active' : ''}" onclick="openTab('${t.id}')">${t.title}</button>`).join('');
+  }
+  function openTab(id){
+    currentTab = id;
+    renderTabs();
+    const tab = TABS.find(t => t.id === id) || TABS[0];
+    $('tab-body').innerHTML = '';
+    tab.render();
+  }
+  function soon(text){
+    $('tab-body').innerHTML = `<div class="card soon">${esc(text)}</div>`;
+  }
+
+  // ---------- журнал ----------
+  const ACTION_NAMES = {
+    login: 'Вход в панель',
+    password_changed: 'Сменил пароль'
+  };
+  let logLastId = null;
+
+  async function renderLog(more){
+    if(!more){
+      logLastId = null;
+      $('tab-body').innerHTML = `<div class="card"><h2>Журнал действий</h2><div id="log-list" class="muted small">Загружаем…</div>
+        <button class="btn-ghost" id="log-more" hidden onclick="renderLog(true)">Показать ещё</button></div>`;
+    }
+    const { data, error } = await sb.rpc('admin_log_list', { p_limit: 50, p_before_id: logLastId });
+    const list = $('log-list');
+    if(!list) return;
+    if(error){ list.textContent = 'Ошибка: ' + error.message; return; }
+    if(!more) list.innerHTML = '';
+    if(!data.length && !more){ list.textContent = 'Пока пусто.'; return; }
+    list.classList.remove('muted', 'small');
+    list.insertAdjacentHTML('beforeend', data.map(r => `
+      <div class="row">
+        <div class="row-main">${esc(ACTION_NAMES[r.action] || r.action)}${r.target ? ' · ' + esc(r.target) : ''}</div>
+        <div class="row-sub">${esc(fmtTime(r.created_at))} · ${esc(r.admin_email || '—')}${
+          r.details && r.details.reason ? ' · причина: ' + esc(r.details.reason) : ''}</div>
+      </div>`).join(''));
+    if(data.length) logLastId = data[data.length - 1].id;
+    $('log-more').hidden = data.length < 50;
+  }
+
+  // ---------- администраторы ----------
+  async function renderAdmins(){
+    $('tab-body').innerHTML = `<div class="card"><h2>Администраторы</h2><div id="adm-list" class="muted small">Загружаем…</div>
+      <div class="note">
+        Добавить администратора пока можно через Supabase:<br>
+        1) Authentication → Users → Add user: почта, пароль, «Auto Confirm User».<br>
+        2) SQL Editor: <code>insert into public.admins (user_id, email) select id, email from auth.users where email = 'почта';</code><br>
+        Убрать: <code>delete from public.admins where email = 'почта';</code><br>
+        Кнопки для этого прямо здесь появятся отдельной доработкой.
+      </div></div>`;
+    const { data, error } = await sb.rpc('admin_list_admins');
+    const list = $('adm-list');
+    if(error){ list.textContent = 'Ошибка: ' + error.message; return; }
+    list.classList.remove('muted', 'small');
+    list.innerHTML = data.map(a => `
+      <div class="row">
+        <div class="row-main">${esc(a.email)}${a.email === me.email ? ' <span class="muted small">(это вы)</span>' : ''}</div>
+        <div class="row-sub">Админ с ${esc(fmtTime(a.created_at))} · последний вход ${esc(fmtTime(a.last_sign_in_at))}</div>
+      </div>`).join('');
+  }
+
+  // ---------- смена пароля ----------
+  function renderAccount(){
+    $('tab-body').innerHTML = `<div class="card"><h2>Сменить пароль</h2>
+      <label for="a-old">Текущий пароль</label>
+      <input id="a-old" type="password" autocomplete="current-password">
+      <label for="a-new">Новый пароль</label>
+      <input id="a-new" type="password" autocomplete="new-password">
+      <label for="a-new2">Новый пароль ещё раз</label>
+      <input id="a-new2" type="password" autocomplete="new-password">
+      <button class="btn" id="a-btn" onclick="doChangePassword()">Сменить пароль</button>
+      <div class="msg" id="a-msg"></div>
+      <div class="note">Не короче ${MIN_PASSWORD} символов. Удобно взять 3–4 случайных слова, например «лёд-сова-мост-47».</div>
+    </div>`;
+  }
+
+  async function doChangePassword(){
+    const oldP = $('a-old').value, p1 = $('a-new').value, p2 = $('a-new2').value;
+    if(!oldP){ msg('a-msg', 'Введите текущий пароль.', 'error'); return; }
+    if(p1.length < MIN_PASSWORD){ msg('a-msg', `Новый пароль — не короче ${MIN_PASSWORD} символов.`, 'error'); return; }
+    if(p1 !== p2){ msg('a-msg', 'Новые пароли не совпадают.', 'error'); return; }
+    $('a-btn').disabled = true;
+    // Сначала проверяем текущий пароль: без этого пароль мог бы сменить
+    // любой, кто на минуту взял ваш телефон с открытой панелью.
+    const check = await sb.auth.signInWithPassword({ email: me.email, password: oldP });
+    if(check.error){
+      $('a-btn').disabled = false;
+      msg('a-msg', check.error.message.toLowerCase().includes('invalid login') ? 'Текущий пароль неверный.' : authError(check.error), 'error');
+      return;
+    }
+    const { error } = await sb.auth.updateUser({ password: p1 });
+    $('a-btn').disabled = false;
+    if(error){ msg('a-msg', authError(error), 'error'); return; }
+    try { await sb.rpc('admin_note_password_changed'); } catch(e){}
+    for(const id of ['a-old', 'a-new', 'a-new2']) $(id).value = '';
+    msg('a-msg', 'Пароль изменён.', 'ok');
+  }
+
+  // Enter в полях входа = «Войти».
+  for(const id of ['l-email', 'l-pass']){
+    $(id).addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+  }
+
+  // ---------- запуск ----------
+  // Если открыли по ссылке из письма «сбросить пароль», Supabase сам
+  // подхватит её и пришлёт событие PASSWORD_RECOVERY.
+  sb.auth.onAuthStateChange((event) => {
+    if(event === 'PASSWORD_RECOVERY'){
+      recoveryMode = true;
+      show('screen-recovery');
+    }
+  });
+
+  (async () => {
+    if(recoveryMode){ show('screen-recovery'); return; }
+    const { data } = await sb.auth.getSession();
+    if(recoveryMode) return;
+    if(data.session && !data.session.user.is_anonymous) await enterPanel();
+    else show('screen-login');
+  })();
+</script>
+</body>
+</html>
