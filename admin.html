@@ -139,6 +139,31 @@
   .order-status.cancelled{ color: var(--danger); }
   .order-status.live{ color: var(--amber); }
   .link-inline{ background: none; border: none; padding: 0; color: var(--ice); font: inherit; font-weight: 600; cursor: pointer; }
+  /* Блокировка */
+  .tag.red{ color: var(--danger); }
+  .chips{ display: flex; flex-wrap: wrap; gap: 8px; }
+  .chip{
+    padding: 9px 13px; border-radius: 999px; font-size: 13.5px; font-weight: 600;
+    background: var(--surface-2); color: var(--muted); border: 1px solid var(--line);
+  }
+  .chip.on{ color: var(--text); border-color: var(--ice-dim); background: #2c3668; }
+  .ban-box{
+    border: 1px solid rgba(232,115,123,0.45); background: rgba(232,115,123,0.08);
+    border-radius: 12px; padding: 14px; font-size: 14px; line-height: 1.6;
+  }
+  .ban-box b{ color: var(--danger); }
+  .warn{ color: var(--amber); font-size: 13.5px; margin-top: 12px; line-height: 1.5; }
+  .btn-danger{
+    width: 100%; margin-top: 16px; padding: 14px; border: none; border-radius: 12px;
+    background: var(--danger); color: #2a0b0e; font-weight: 700; font-size: 15px;
+  }
+  textarea{
+    width: 100%; min-height: 70px; padding: 12px 14px; resize: vertical;
+    background: var(--surface-2); color: var(--text);
+    border: 1px solid var(--line); border-radius: 12px;
+    font-family: inherit; font-size: 16px;
+  }
+  textarea:focus{ outline: none; border-color: var(--ice-dim); }
   [hidden]{ display: none !important; }
 </style>
 </head>
@@ -239,7 +264,7 @@
     $('l-btn').disabled = false;
     if(error){ msg('l-msg', authError(error), 'error'); return; }
     $('l-pass').value = '';
-    await enterPanel();
+    await enterPanel(true);
   }
 
   // Ссылка для сброса пароля придёт на почту и откроет эту же страницу.
@@ -261,7 +286,7 @@
     recoveryMode = false;
     history.replaceState(null, '', location.pathname);
     try { await sb.rpc('admin_note_password_changed'); } catch(e){}
-    await enterPanel();
+    await enterPanel(true);
   }
 
   async function doLogout(){
@@ -272,8 +297,10 @@
   }
 
   // Вошли. Спрашиваем базу, админ ли это. Если нет — выходим.
-  async function enterPanel(){
-    const { data, error } = await sb.rpc('admin_whoami');
+  // logLogin — записать вход в журнал (только после ввода пароля, а не при
+  // каждом открытии страницы с сохранённым входом).
+  async function enterPanel(logLogin){
+    const { data, error } = await sb.rpc('admin_whoami', { p_log: !!logLogin });
     const row = data && data[0];
     if(error || !row || !row.is_admin){
       await sb.auth.signOut();
@@ -320,7 +347,9 @@
   const ACTION_NAMES = {
     login: 'Вход в панель',
     password_changed: 'Сменил пароль',
-    view_person: 'Открыл карточку'
+    view_person: 'Открыл карточку',
+    ban: 'Заблокировал',
+    unban: 'Снял блокировку'
   };
   let logLastId = null;
 
@@ -341,6 +370,7 @@
       <div class="row">
         <div class="row-main">${esc(ACTION_NAMES[r.action] || r.action)}${r.target ? ' · ' + esc(r.target) : ''}</div>
         <div class="row-sub">${esc(fmtTime(r.created_at))} · ${esc(r.admin_email || '—')}${
+          r.action === 'ban' && r.details ? ' · ' + esc(banKind(r.details.scope)) + ', ' + esc(banUntil(r.details.until)) : ''}${
           r.details && r.details.reason ? ' · причина: ' + esc(r.details.reason) : ''}</div>
       </div>`).join(''));
     if(data.length) logLastId = data[data.length - 1].id;
@@ -384,7 +414,8 @@
     if(!list.length){ box.innerHTML = '<div class="msg muted">Никого не нашли.</div>'; return; }
     box.innerHTML = `<div style="margin-top:8px">` + list.map(p => `
       <div class="row click" onclick="openPerson('${p.id}')">
-        <div class="row-main">${esc(p.name || 'Без имени')}${p.is_driver ? '<span class="tag amber">водитель</span>' : ''}</div>
+        <div class="row-main">${esc(p.name || 'Без имени')}${p.is_driver ? '<span class="tag amber">водитель</span>' : ''}${
+          p.ban_scope ? `<span class="tag red">${p.ban_scope === 'all' ? 'заблокирован' : 'бан водителя'}</span>` : ''}</div>
         <div class="row-sub">${esc(p.phone)} · с ${esc(fmtDate(p.created_at))}${p.last_active_at ? ' · был ' + esc(fmtTime(p.last_active_at)) : ''}</div>
       </div>`).join('') + (list.length === 20 ? '<div class="note">Показаны первые 20. Уточните запрос.</div>' : '') + `</div>`;
   }
@@ -422,6 +453,105 @@
     return (sum / count).toFixed(1).replace('.', ',') + ' из 5 · ' + count + ' ' + plural(count, 'оценка', 'оценки', 'оценок');
   }
 
+  // ---------- блокировка ----------
+  function banKind(scope){ return scope === 'driver' ? 'только как водитель' : 'полностью'; }
+  function banUntil(until){
+    if(!until) return 'бессрочно';
+    return 'до ' + new Date(until).toLocaleString('ru-RU', { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' });
+  }
+
+  let banForm = { scope: 'all', days: 1, custom: '' };
+  let currentPerson = null;
+
+  const BAN_TERMS = [[1, '1 день'], [3, '3 дня'], [7, '7 дней'], [30, '30 дней'], [0, 'Навсегда'], ['custom', 'Своя дата']];
+
+  function banSection(d){
+    const b = d.active_ban;
+    if(b){
+      return `<div class="card">
+        <h2>Блокировка</h2>
+        <div class="ban-box">
+          <b>Заблокирован ${esc(banKind(b.scope))}</b>, ${esc(banUntil(b.until))}<br>
+          Причина: ${esc(b.reason)}<br>
+          <span class="muted small">Поставил ${esc(b.created_by_email || '—')}, ${esc(fmtTime(b.created_at))}</span>
+        </div>
+        <button class="btn-ghost" onclick="doUnban()">Снять блокировку</button>
+      </div>`;
+    }
+    const trip = d.active_trip;
+    return `<div class="card">
+      <h2>Заблокировать</h2>
+      <label>Вид</label>
+      <div class="chips">
+        <button class="chip ${banForm.scope === 'all' ? 'on' : ''}" onclick="setBanForm('scope','all')">Полностью</button>
+        <button class="chip ${banForm.scope === 'driver' ? 'on' : ''}" onclick="setBanForm('scope','driver')">Только как водителя</button>
+      </div>
+      <label>Срок</label>
+      <div class="chips">
+        ${BAN_TERMS.map(([v, t]) => `<button class="chip ${banForm.days === v ? 'on' : ''}" onclick="setBanForm('days', ${typeof v === 'number' ? v : "'custom'"})">${t}</button>`).join('')}
+      </div>
+      ${banForm.days === 'custom' ? `<input id="ban-date" type="datetime-local" style="margin-top:10px" value="${esc(banForm.custom)}" onchange="banForm.custom=this.value">` : ''}
+      <label for="ban-reason">Причина (видят только админы)</label>
+      <textarea id="ban-reason" placeholder="Например: не приехал на 3 заказа подряд"></textarea>
+      ${trip ? `<div class="warn">Внимание: у человека идёт поездка (${trip.role === 'driver' ? 'он водитель' : 'он пассажир'}). Блокировка её не прервёт — поездку можно будет довезти и завершить.</div>` : ''}
+      <button class="btn-danger" onclick="doBan()">Заблокировать</button>
+    </div>`;
+  }
+
+  function historySection(d){
+    const list = (d.bans || []).filter(b => !d.active_ban || b.id !== d.active_ban.id);
+    if(!list.length) return '';
+    return `<div class="card"><h2>Прошлые блокировки</h2>` + list.map(b => `
+      <div class="row">
+        <div class="row-main">${esc(b.scope === 'driver' ? 'Только как водитель' : 'Полностью')}, ${esc(banUntil(b.until))}</div>
+        <div class="row-sub">Причина: ${esc(b.reason)}</div>
+        <div class="row-sub">Поставил ${esc(b.created_by_email || '—')}, ${esc(fmtTime(b.created_at))}${
+          b.lifted_at ? ` · снял ${esc(b.lifted_by_email || '—')}, ${esc(fmtTime(b.lifted_at))}` : ' · срок вышел'}</div>
+      </div>`).join('') + `</div>`;
+  }
+
+  function setBanForm(key, value){
+    const reason = $('ban-reason') ? $('ban-reason').value : '';
+    banForm[key] = value;
+    if(key === 'days' && value === 'custom' && !banForm.custom){
+      const t = new Date(Date.now() + 24 * 3600 * 1000);
+      t.setMinutes(t.getMinutes() - t.getTimezoneOffset());
+      banForm.custom = t.toISOString().slice(0, 16);
+    }
+    $('ban-slot').innerHTML = banSection(currentPerson);
+    if($('ban-reason')) $('ban-reason').value = reason;
+  }
+
+  async function doBan(){
+    const reason = $('ban-reason').value.trim();
+    if(!reason){ alert('Напишите причину блокировки.'); return; }
+    let until = null;
+    if(banForm.days === 'custom'){
+      if(!banForm.custom){ alert('Выберите дату окончания.'); return; }
+      until = new Date(banForm.custom);
+      if(!(until > new Date())){ alert('Дата окончания должна быть в будущем.'); return; }
+    } else if(banForm.days){
+      until = new Date(Date.now() + banForm.days * 24 * 3600 * 1000);
+    }
+    const p = currentPerson.profile;
+    const text = `Заблокировать ${p.name || 'этого человека'} ${banKind(banForm.scope)}, ${banUntil(until)}?`;
+    if(!confirm(text)) return;
+    const { error } = await sb.rpc('admin_ban', {
+      p_profile: p.id, p_scope: banForm.scope, p_until: until ? until.toISOString() : null, p_reason: reason
+    });
+    if(error){ alert('Не получилось: ' + error.message); return; }
+    banForm = { scope: 'all', days: 1, custom: '' };
+    openPerson(p.id);
+  }
+
+  async function doUnban(){
+    const p = currentPerson.profile;
+    if(!confirm(`Снять блокировку с ${p.name || 'этого человека'}?`)) return;
+    const { error } = await sb.rpc('admin_unban', { p_profile: p.id });
+    if(error){ alert('Не получилось: ' + error.message); return; }
+    openPerson(p.id);
+  }
+
   async function openPerson(id){
     $('tab-body').innerHTML = `<button class="back" onclick="renderPeople()">← К поиску</button><div class="card"><div class="msg muted">Загружаем…</div></div>`;
     const { data, error } = await sb.rpc('admin_person', { p_id: id });
@@ -429,6 +559,7 @@
       $('tab-body').innerHTML = `<button class="back" onclick="renderPeople()">← К поиску</button><div class="card"><div class="msg error">Ошибка: ${esc(error.message)}</div></div>`;
       return;
     }
+    currentPerson = data;
     const p = data.profile, pas = data.passenger, drv = data.driver;
     const inAppNow = p.app_seen_at && (Date.now() - Date.parse(p.app_seen_at) < 30000);
     const tel = String(p.phone || '').replace(/[^\d+]/g, '');
@@ -437,7 +568,8 @@
       <button class="back" onclick="renderPeople()">← К поиску</button>
 
       <div class="card">
-        <h2>${esc(p.name || 'Без имени')}${drv ? '<span class="tag amber">водитель</span>' : ''}</h2>
+        <h2>${esc(p.name || 'Без имени')}${drv ? '<span class="tag amber">водитель</span>' : ''}${
+          data.active_ban ? `<span class="tag red">${data.active_ban.scope === 'all' ? 'заблокирован' : 'бан водителя'}</span>` : ''}</h2>
         <a class="phone-link" href="tel:${esc(tel)}">${esc(p.phone)}</a>
         <dl class="kv" style="margin-top:14px">
           <dt>Регистрация</dt><dd>${esc(fmtDate(p.created_at))}</dd>
@@ -448,6 +580,9 @@
           <dt>Входов</dt><dd>${data.sessions} ${plural(data.sessions, 'устройство', 'устройства', 'устройств')}</dd>
         </dl>
       </div>
+
+      <div id="ban-slot">${banSection(data)}</div>
+      ${historySection(data)}
 
       <div class="card">
         <h2>Как пассажир</h2>

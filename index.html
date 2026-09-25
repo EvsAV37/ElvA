@@ -1090,6 +1090,7 @@ void main(){
     <section id="view-driver" hidden></section>
     <section id="view-history" hidden></section>
     <section id="view-help" hidden></section>
+    <section id="view-banned" hidden></section>
   </main>
 
   <div class="footer-note">Демо-прототип · данные не сохраняются между сессиями</div>
@@ -1117,6 +1118,17 @@ void main(){
   });
 
   function showBanner(text, type){
+    const raw = String(text || '');
+    if(/account banned|driver banned|driver unavailable/.test(raw)){
+      if(/driver unavailable/.test(raw)){
+        text = 'Этот водитель сейчас недоступен. Выберите другое предложение.';
+      } else {
+        text = /driver banned/.test(raw) ? 'Работа водителем приостановлена.' : 'Аккаунт заблокирован.';
+        recheckBan();
+      }
+      type = 'notice';
+      setTimeout(() => hideBanner(true), 4000);
+    }
     const el = document.getElementById('conn-banner');
     el.textContent = text;
     el.className = 'conn-banner ' + type;
@@ -1419,7 +1431,8 @@ void main(){
     if(!sb || !myProfile || resyncInFlight) return;
     resyncInFlight = true;
     try {
-      await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles()]);
+      await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles(), fetchBan()]);
+      applyBan();
       if(!realtimeAlive()) subscribeRealtime();
     } catch(e){
       console.error('resync:', e);
@@ -1501,13 +1514,93 @@ void main(){
     switchView(currentView);
     startPresence();
     initPush();
-    await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles()]);
+    await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles(), fetchBan()]);
+    applyBan();
     try {
       subscribeRealtime();
       startRealtimeWatch();
     } catch(e){
       console.error('Realtime subscribe failed:', e);
     }
+  }
+
+  // ---------- блокировка ----------
+  // Блокировку ставит админ в панели. Два вида: 'all' — полная (вместо
+  // приложения экран «Аккаунт заблокирован»), 'driver' — только работа
+  // водителем (вместо ленты — «Работа водителем приостановлена»).
+  // Срок проверяет база; когда он выходит, блокировка просто пропадает.
+  // Идущую поездку блокировка не прерывает: её можно довезти и завершить.
+  let myBan = null;             // { scope, until } или null
+  let banTimer = null;
+
+  async function fetchBan(){
+    if(!sb || !myProfile) return;
+    const { data, error } = await sb.rpc('my_ban');
+    if(error){ console.error('my_ban:', error.message); return; }
+    myBan = data && data[0] ? data[0] : null;
+    // Временная блокировка: перепроверим, когда выйдет срок (но не реже
+    // чем раз в 6 часов — таймеры на недели браузер держит плохо).
+    clearTimeout(banTimer);
+    if(myBan && myBan.until){
+      const ms = Math.min(Date.parse(myBan.until) - Date.now() + 1500, 6 * 60 * 60 * 1000);
+      banTimer = setTimeout(recheckBan, Math.max(ms, 1000));
+    }
+  }
+
+  async function recheckBan(){
+    await fetchBan();
+    applyBan();
+    renderPassenger();
+    renderDriver();
+  }
+
+  function hasActiveTrip(){
+    return orders.some(o => ['accepted', 'arrived', 'in_progress'].includes(o.status)
+      && (o.passengerId === passengerId || o.driverId === driverId));
+  }
+  function driverBanned(){ return !!myBan && (myBan.scope === 'driver' || myBan.scope === 'all'); }
+  // Полный экран блокировки — только если нет идущей поездки.
+  function fullBanActive(){ return !!myBan && myBan.scope === 'all' && !hasActiveTrip(); }
+
+  function banUntilText(){
+    if(!myBan || !myBan.until) return 'Блокировка бессрочная.';
+    const d = new Date(myBan.until);
+    return 'Блокировка действует до ' + d.toLocaleString('ru-RU',
+      { day: 'numeric', month: 'long', hour: '2-digit', minute: '2-digit' }) + '.';
+  }
+
+  function applyBan(){
+    const el = document.getElementById('view-banned');
+    if(fullBanActive()){
+      for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help']){
+        document.getElementById(id).hidden = true;
+      }
+      el.innerHTML = `
+        <h1 class="view-title">Аккаунт заблокирован</h1>
+        <div class="order-card">
+          <p class="support-text">${esc(banUntilText())}</p>
+          <p class="support-text">Если считаете это ошибкой, напишите в поддержку:</p>
+          <div class="support-mail">${SUPPORT_EMAIL}</div>
+          <button class="btn-primary" onclick="writeSupport()">Написать письмо</button>
+          <button class="btn-ghost cancel-close" onclick="recheckBan()">Проверить снова</button>
+        </div>`;
+      el.hidden = false;
+    } else if(!el.hidden){
+      el.hidden = true;
+      document.getElementById('view-passenger').hidden = currentView !== 'passenger';
+      document.getElementById('view-driver').hidden = currentView !== 'driver';
+    }
+  }
+
+  function bannedDriverCard(){
+    return `
+      <div class="order-card">
+        <div class="support-title">Работа водителем приостановлена</div>
+        <p class="support-text">${esc(banUntilText())} Как пассажир вы можете пользоваться приложением как обычно.</p>
+        <p class="support-text">Если считаете это ошибкой, напишите в поддержку:</p>
+        <div class="support-mail">${SUPPORT_EMAIL}</div>
+        <button class="btn-call" onclick="writeSupport()">Написать письмо</button>
+      </div>`;
   }
 
   // ---------- «я сейчас в приложении» ----------
@@ -2484,14 +2577,17 @@ void main(){
     // Пока у водителя уже есть активный заказ, он не должен видеть ни свои
     // старые предложения на другие заказы, ни свободную ленту — сервер это и так
     // не даст принять, но на экране это тоже не должно выглядеть как вариант.
-    const myOffers = isBusy ? [] : orders.filter(o => o.status === 'searching' && myOfferedIds.has(o.id));
-    const pending = isBusy ? [] : orders.filter(o => o.status === 'searching' && !myOfferedIds.has(o.id));
+    // Заблокированный водитель ленту не видит, но идущую поездку довозит.
+    const banned = driverBanned();
+    const myOffers = (isBusy || banned) ? [] : orders.filter(o => o.status === 'searching' && myOfferedIds.has(o.id));
+    const pending = (isBusy || banned) ? [] : orders.filter(o => o.status === 'searching' && !myOfferedIds.has(o.id));
     const mine = [...myOffers, ...enRoute, ...arrived, ...inProgress];
     const needsRating = orders.filter(o => o.status === 'done' && o.driverId === driverId && o.driverRating == null);
 
     let html = `<h1 class="view-title driver-title">Лента заказов</h1>`;
 
-    if(!isBusy) html += driverAvailabilityBlock();
+    if(banned) html += bannedDriverCard();
+    else if(!isBusy) html += driverAvailabilityBlock();
 
     if(needsRating.length){
       html += `<div class="order-list">`;
@@ -2583,7 +2679,7 @@ void main(){
       html += `</div>`;
     }
 
-    if(!pending.length && !mine.length){
+    if(!pending.length && !mine.length && !banned){
       html += `
         <div class="empty-state">
           <div class="spinner"></div>
@@ -2719,6 +2815,7 @@ void main(){
     historyItems = [];
     historyHasMore = false;
     historyStats = null;
+    document.getElementById('view-banned').hidden = true;
     document.getElementById('view-passenger').hidden = true;
     document.getElementById('view-driver').hidden = true;
     document.getElementById('view-help').hidden = true;
@@ -2784,8 +2881,8 @@ void main(){
     let statusLabel = 'Выполнен';
     if(cancelled){
       statusLabel = isDriver
-        ? (o.cancelledBy === 'passenger' ? 'Отменил пассажир' : 'Вы отменили')
-        : (o.cancelledBy === 'driver' ? 'Отменил водитель' : 'Вы отменили');
+        ? (o.cancelledBy === 'admin' ? 'Отменено поддержкой' : o.cancelledBy === 'passenger' ? 'Отменил пассажир' : 'Вы отменили')
+        : (o.cancelledBy === 'admin' ? 'Отменено поддержкой' : o.cancelledBy === 'driver' ? 'Отменил водитель' : 'Вы отменили');
     }
     const timeLabel = isDriver
       ? d.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })
@@ -2937,6 +3034,7 @@ void main(){
 
   function openHelp(){
     closeMenu();
+    document.getElementById('view-banned').hidden = true;
     document.getElementById('view-passenger').hidden = true;
     document.getElementById('view-driver').hidden = true;
     document.getElementById('view-history').hidden = true;
@@ -3110,6 +3208,7 @@ void main(){
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-passenger').hidden = view !== 'passenger';
     document.getElementById('view-driver').hidden = view !== 'driver';
+    applyBan();
     reportPresence(true);
   }
 
