@@ -55,9 +55,23 @@
     --danger: #E8737B;
     --line: rgba(237,239,245,0.09);
     --radius: 16px;
+
+    /* Единый вид всех экранов. Новые экраны берут размеры отсюда, а не
+       придумывают свои — тогда приложение не расползается в разнобой.
+       Шрифт: пять размеров. Кнопки: одна высота. Скругления: два. */
+    --fs-xl: 24px;   /* заголовок экрана */
+    --fs-l: 20px;    /* главное в карточке: марка, цена, адрес */
+    --fs-m: 16px;    /* обычный текст, маршрут, кнопки */
+    --fs-s: 14px;    /* подписи и пояснения, серым */
+    --fs-xs: 12px;   /* мелкие пометки: время, статус */
+    --btn-h: 48px;   /* высота кнопок, полей и плашек выбора */
+    --r-card: 16px;  /* карточка на экране */
+    --r-in: 12px;    /* карточка внутри карточки, кнопка, поле */
   }
 
   *{ box-sizing: border-box; }
+  /* hidden всегда прячет, даже если у элемента свой display (flex и т.п.). */
+  [hidden]{ display: none !important; }
 
   /* Это приложение, а не страница: масштабировать щипком и двойным касанием
      нечего, «резиновое» оттягивание за край тоже ни к чему. */
@@ -144,7 +158,7 @@
   .tagline{
     position: relative;
     margin: 4px 0 10px;
-    font-size: 13.5px;
+    font-size: var(--fs-s);
     color: var(--muted);
     text-align: right;
   }
@@ -167,7 +181,7 @@
     color: var(--muted);
     font-family: 'Manrope', sans-serif;
     font-weight: 700;
-    font-size: 13.5px;
+    font-size: var(--fs-s);
     padding: 10px 0;
     border-radius: 100px;
     cursor: pointer;
@@ -196,24 +210,29 @@
 
   h1.view-title{
     font-family: 'Unbounded', sans-serif;
-    font-size: 22px;
+    font-size: var(--fs-xl);
+    line-height: 1.25;
     font-weight: 600;
     margin: 0;
     letter-spacing: -0.01em;
   }
-  .view-sub{ margin: 8px 0 2px; color: var(--muted); font-size: 14px; line-height: 1.5; }
-  h1.order-title{ margin: 0 0 12px; }
-  h1.driver-title{ margin-bottom: 12px; }
+  .view-sub{ margin: -8px 0 0; color: var(--muted); font-size: var(--fs-s); line-height: 1.5; }
+
+  /* Экраны — столбик с одинаковым промежутком между блоками. */
+  #view-login:not([hidden]), #view-passenger:not([hidden]), #view-driver:not([hidden]),
+  #view-banned:not([hidden]), #view-history:not([hidden]){
+    display: flex; flex-direction: column; gap: 16px;
+  }
 
   .divider{
-    height: 2px;
+    height: 1px;
     background: var(--line);
-    margin: 6px 0 10px;
+    margin: 0;
     border: none;
   }
 
-  label{ font-size: 12.5px; color: var(--muted); font-weight: 600; display: block; margin-bottom: 6px; }
-  .field{ margin-bottom: 14px; }
+  label{ font-size: var(--fs-s); color: var(--muted); font-weight: 600; display: block; margin-bottom: 8px; }
+  .field{ margin: 0; }
   input, textarea{
     width: 100%;
     background: var(--surface-2);
@@ -222,9 +241,10 @@
     font-family: 'Manrope', sans-serif;
     /* Ровно 16px: при меньшем размере iPhone при нажатии на поле
        самостоятельно приближает экран, и вёрстка «уезжает». */
-    font-size: 16px;
-    padding: 13px 14px;
-    border-radius: 12px;
+    font-size: var(--fs-m);
+    min-height: var(--btn-h);
+    padding: 12px 14px;
+    border-radius: var(--r-in);
     outline: none;
     transition: border-color 0.15s ease;
   }
@@ -256,46 +276,47 @@
   .input-wrap:focus-within .icon{ color: var(--ice); }
   .input-wrap.tall .icon{ top: 16px; }
 
-  .btn-primary{
+  /* ---------- Кнопки: три вида, одна высота ----------
+     Главная (голубая) — одно основное действие на экране.
+     Обычная (в рамке) — «Позвонить», «Не сейчас».
+     Тихая (серый текст) — «Отменить». Красная — только в подтверждении отмены. */
+  .btn-primary, .btn-accept, .btn-complete, .btn-call, .btn-ghost, .btn-danger{
     width: 100%;
-    padding: 15px;
-    background: var(--amber);
-    color: #211405;
-    border: none;
-    border-radius: 12px;
+    min-height: var(--btn-h);
+    margin: 0;
+    padding: 0 16px;
+    border: 1px solid transparent;
+    border-radius: var(--r-in);
     font-family: 'Manrope', sans-serif;
     font-weight: 700;
-    font-size: 15px;
-    cursor: pointer;
-    margin-top: 4px;
-    transition: filter 0.15s ease, transform 0.1s ease;
+    font-size: var(--fs-m);
+    line-height: 1.2;
     display: flex;
     align-items: center;
     justify-content: center;
     gap: 8px;
-  }
-  .btn-primary:hover{ filter: brightness(1.08); }
-  .btn-primary:active{ transform: scale(0.98); }
-  .btn-primary:disabled{ background: var(--surface-2); color: var(--muted); cursor: not-allowed; }
-
-  .btn-ghost{
-    width: 100%;
-    padding: 12px;
-    background: transparent;
-    border: 1px solid var(--line);
-    color: var(--muted);
-    border-radius: 12px;
-    font-family: 'Manrope', sans-serif;
-    font-weight: 600;
-    font-size: 13.5px;
+    text-align: center;
     cursor: pointer;
   }
+  .btn-primary, .btn-accept, .btn-complete{ background: var(--ice); color: #0c2126; }
+  .btn-call{ background: transparent; border-color: rgba(237,239,245,0.22); color: var(--text); }
+  .btn-ghost{ background: transparent; border-color: var(--line); color: var(--muted); }
+  .btn-danger{ background: var(--danger); color: #2a0b0e; }
+  .btn-primary:disabled, .btn-accept:disabled, .btn-complete:disabled{ opacity: 0.4; cursor: default; }
+  .btn-stack{ display: flex; flex-direction: column; gap: 8px; }
 
+
+  /* ---------- Карточки ----------
+     Внутри карточки — столбик с одинаковым промежутком. Строка маршрута и
+     строка под ней держатся вместе (см. правила «+» ниже). */
   .order-card{
     background: var(--surface-2);
-    border-radius: var(--radius);
-    padding: 24px;
+    border-radius: var(--r-card);
+    padding: 20px;
     border: 1px solid var(--line);
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
   .order-card.searching{
     animation: searchPulse 2.2s ease-in-out infinite;
@@ -304,46 +325,53 @@
     0%, 100%{ border-color: var(--line); box-shadow: 0 0 0 0 rgba(143,224,232,0); }
     50%{ border-color: var(--ice); box-shadow: 0 0 14px -2px rgba(143,224,232,0.35); }
   }
-  .offers-list{ margin-top: 6px; }
-  .order-route{ font-size: 15px; font-weight: 700; margin-bottom: 4px; }
+  .order-route{ font-size: var(--fs-m); font-weight: 700; line-height: 1.35; margin: 0; }
   .order-route .arrow{ color: var(--ice-dim); margin: 0 6px; }
-  .order-meta{ font-size: 13px; color: var(--muted); margin-bottom: 20px; }
+  .order-meta{ font-size: var(--fs-s); line-height: 1.45; color: var(--muted); margin: 0; }
+  .order-route + .order-meta, .req-top + .order-meta, .order-meta + .order-meta{ margin-top: -8px; }
   .order-price{ color: var(--amber); font-weight: 700; }
+  .price-l{ font-size: var(--fs-l); font-weight: 800; color: var(--amber); white-space: nowrap; }
+  .req-price{ display: flex; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+  .person-line{ display: flex; align-items: center; gap: 8px; font-size: var(--fs-s); color: var(--muted); }
 
   .driver-info{
-    margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line);
-    font-size: 14px;
+    padding-top: 12px; border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 12px;
   }
   .order-actions{
-    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);
+    padding-top: 12px; border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 8px;
   }
   .driver-info .name{ font-weight: 600; color: var(--text); }
   .eta-text{ color: var(--muted); font-size: 13px; margin-top: 3px; }
-  .wait-text{ color: var(--text); line-height: 1.5; flex: 1; }
+  .wait-text{ color: var(--text); font-size: var(--fs-m); line-height: 1.5; flex: 1; }
   .wait-block{
-    margin: 10px 0 16px;
+    margin: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
     gap: 12px;
   }
-  .login-hint{ color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
-  #view-login input{ margin-bottom: 10px; }
-  #view-login h1.view-title{ margin-bottom: 16px; }
-  .btn-login{ background: var(--ice); color: #0c2126; }
-  #login-fallback-prompt{ margin-top: 16px; }
-  #login-fallback-prompt .login-hint{ margin-bottom: 6px; }
+  .login-hint{ color: var(--muted); font-size: var(--fs-s); line-height: 1.5; margin: 0; }
+  #login-step-phone:not([hidden]), #login-step-code:not([hidden]), #login-step-fallback:not([hidden]),
+  #login-step-name:not([hidden]), #login-fallback-prompt:not([hidden]), #login-callback-numbers{
+    display: flex; flex-direction: column; gap: 12px;
+  }
+  #login-fallback-prompt{ margin-top: 4px; }
   .callback-number{
-    display: block;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     width: 100%;
     box-sizing: border-box;
-    padding: 12px;
-    margin: 8px 0;
-    border-radius: 10px;
-    border: 1.5px solid var(--ice-dim);
+    min-height: var(--btn-h);
+    padding: 0 12px;
+    margin: 0;
+    border-radius: var(--r-in);
+    border: 1px solid var(--ice-dim);
     background: transparent;
     color: var(--text);
-    font-size: 17px;
+    font-size: var(--fs-l);
     font-weight: 700;
     letter-spacing: 0.02em;
     text-align: center;
@@ -355,35 +383,19 @@
      невидимым — иначе шапка "схлопывается", свечение в ней обрезается по
      меньшей высоте и стык с экраном становится резким. */
   .switcher.ghost{ visibility: hidden; }
-  .btn-exit{
-    margin-top: 14px;
-    background: var(--ice);
-    color: #0c2126;
-  }
-  .btn-call{
-    width: 100%;
-    margin-top: 10px;
-    padding: 10px;
-    background: transparent;
-    color: var(--text);
-    border: 1.5px solid var(--line);
-    border-radius: 10px;
-    font-weight: 700;
-    font-size: 13.5px;
-    cursor: pointer;
-  }
   .wait-timer{
     flex-shrink: 0;
-    width: 56px;
+    min-width: 60px;
     text-align: center;
-    font-family: 'Unbounded', sans-serif;
-    font-size: 15px;
-    font-weight: 600;
+    font-family: 'Manrope', sans-serif;
+    font-size: var(--fs-m);
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
     color: var(--text);
     background: var(--surface);
     border: 1px solid var(--line);
     border-radius: 10px;
-    padding: 6px 0;
+    padding: 8px 10px;
   }
   .wait-timer.expired{
     background: var(--danger);
@@ -398,14 +410,15 @@
   }
 
   .rating-block{
-    margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--line);
+    padding-top: 12px; border-top: 1px solid var(--line);
+    display: flex; flex-direction: column; gap: 12px;
     text-align: center;
   }
   .rating-badge{
-    font-size: 12.5px; color: var(--muted); font-weight: 600;
+    font-size: var(--fs-s); color: var(--muted); font-weight: 600;
   }
   .rating-badge.new{ color: var(--ice-dim); }
-  .rating-label{ font-size: 13.5px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
+  .rating-label{ font-size: var(--fs-m); color: var(--text); margin: 0; font-weight: 600; }
   /* Звёзды оценки. Звезда — своя картинка (SVG), а не символ ★: символа нет
      в наших шрифтах, и на разных телефонах он выглядел бы по-разному. */
   .rate-stars{ display: flex; justify-content: center; gap: 4px; }
@@ -416,7 +429,7 @@
     transition: color 0.15s ease, transform 0.1s ease;
     -webkit-tap-highlight-color: transparent;
   }
-  .rate-star svg{ width: 30px; height: 30px; }
+  .rate-star svg{ width: 36px; height: 36px; }
   .rate-star:hover:not(:disabled){ transform: scale(1.1); }
   .rate-star.filled{ color: var(--amber); }
   .rate-star:disabled{ cursor: default; }
@@ -428,7 +441,7 @@
   }
   .star-inline .star-icon{ width: 100%; height: 100%; }
   @media (prefers-reduced-motion: reduce){ .rate-star{ transition: none; } }
-  .rating-confirm{ margin-top: 20px; }
+  .rating-confirm{ margin: 0; }
 
   .empty-state{
     text-align: center; padding: 40px 20px; color: var(--muted);
@@ -443,67 +456,56 @@
     animation: spin 1.8s linear infinite;
   }
   @keyframes spin{ to{ transform: rotate(360deg); } }
-  .empty-state p{ font-size: 14px; line-height: 1.6; margin: 0; }
+  .empty-state p{ font-size: var(--fs-s); line-height: 1.6; margin: 0; }
 
   .order-list{ display: flex; flex-direction: column; gap: 12px; }
+  /* Карточка в ленте. Внутри карточки заказа (предложения водителей) —
+     на тон темнее и с меньшим скруглением. */
   .req-card{
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: var(--radius);
-    padding: 20px;
+    border-radius: var(--r-card);
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
   }
-  .req-top{ display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
-  .req-time{ font-size: 12px; color: var(--muted); white-space: nowrap; }
-  .req-comment{ font-size: 13px; color: var(--muted); margin: 10px 0 14px; font-style: italic; }
+  .order-card .req-card{ background: var(--surface); border-radius: var(--r-in); }
+  .req-top{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 0; }
+  .req-time{ font-size: var(--fs-xs); color: var(--muted); white-space: nowrap; }
+  .req-comment{ font-size: var(--fs-s); color: var(--muted); margin: 0; font-style: italic; }
   .req-actions{ display: flex; gap: 8px; }
+  .req-actions > button{ flex: 1; }
 
-  .eta-picker{ margin-top: 4px; }
-  .eta-label{ font-size: 13px; color: var(--muted); margin-bottom: 10px; font-weight: 600; }
-  .eta-options{ display: flex; gap: 8px; margin-bottom: 10px; }
+  .eta-picker{ display: flex; flex-direction: column; gap: 12px; }
+  .eta-options{ display: flex; gap: 8px; margin: 0 0 8px; }
   .eta-chip{
-    flex: 1; padding: 10px 0; background: var(--surface); color: var(--text);
-    border: 1px solid var(--line); border-radius: 10px;
-    font-weight: 700; font-size: 13.5px; cursor: pointer;
+    flex: 1; min-height: var(--btn-h); padding: 0; background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: var(--r-in);
+    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: var(--fs-m); cursor: pointer;
   }
-  .eta-chip:hover{ border-color: var(--ice); }
   .eta-chip:focus, .eta-chip:focus-visible{ outline: none; border-color: var(--ice); }
   .eta-chip.active{
-    border-color: var(--success);
-    box-shadow: inset 0 0 0 1px var(--success);
+    border-color: var(--ice);
+    box-shadow: inset 0 0 0 1px var(--ice);
     color: var(--text);
   }
-  .eta-custom{ display: flex; gap: 8px; }
-  .eta-custom input{
-    flex: 1; padding: 10px 12px; font-size: 13.5px;
-  }
-  .eta-custom .btn-accept{ flex: 0 0 60px; padding: 10px 0; }
-  .btn-accept{
-    flex: 1; padding: 10px; background: var(--ice); color: #0c2126;
-    border: none; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;
-  }
-  .btn-accept:disabled{ opacity: 0.4; cursor: default; }
-  .btn-complete{
-    flex: 1; padding: 10px; background: var(--success); color: #0c2618;
-    border: none; border-radius: 10px; font-weight: 700; font-size: 13.5px; cursor: pointer;
-  }
 
-  .section-label{ font-size: 12.5px; font-weight: 700; color: var(--muted); text-transform: none; margin: 4px 0 -6px; }
+  .section-label{ font-size: var(--fs-s); font-weight: 700; color: var(--muted); text-transform: none; margin: 0 0 -4px; }
 
-  .price-picker{ margin-bottom: 10px; }
-  .price-picker input{ font-size: 16px; padding: 10px 12px; }
   .counter-offer{ margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
   .counter-offer .req-actions{ margin-top: 10px; }
 
   .footer-note{
     padding: 14px 24px 20px; text-align: center;
-    font-size: 11.5px; color: var(--muted); opacity: 0.7;
+    font-size: var(--fs-xs); color: var(--muted); opacity: 0.7;
   }
 
   .conn-banner{
     margin: 0 24px 14px;
     padding: 10px 14px;
     border-radius: 10px;
-    font-size: 12.5px;
+    font-size: var(--fs-s);
     line-height: 1.5;
   }
   .conn-banner.error{ background: rgba(232,115,123,0.12); border: 1px solid var(--danger); color: var(--text); }
@@ -564,9 +566,9 @@
     .menu-overlay, .side-menu{ transition: none; }
   }
   .menu-profile{ padding-bottom: 4px; }
-  .menu-name{ font-size: 19px; font-weight: 700; }
-  .menu-rating{ margin-top: 6px; font-size: 14px; color: var(--ice); }
-  .menu-role-note{ margin-top: 4px; font-size: 12.5px; color: var(--muted); }
+  .menu-name{ font-size: var(--fs-l); font-weight: 700; }
+  .menu-rating{ margin-top: 6px; font-size: var(--fs-s); color: var(--ice); }
+  .menu-role-note{ margin-top: 4px; font-size: var(--fs-xs); color: var(--muted); }
   .menu-role-switch{ margin: 0; }
   .menu-items{ display: flex; flex-direction: column; gap: 2px; margin-top: 4px; }
   .menu-item{
@@ -575,7 +577,7 @@
     background: transparent;
     border: none;
     color: var(--text);
-    font-size: 15px;
+    font-size: var(--fs-m);
     font-family: inherit;
     padding: 13px 4px;
     border-bottom: 1px solid var(--line);
@@ -583,26 +585,25 @@
   }
   .menu-item-muted{ color: var(--muted); border-bottom: none; }
 
-  .history-head{ display: flex; align-items: center; gap: 12px; margin-bottom: 4px; }
+  .history-head{ display: flex; align-items: center; gap: 12px; margin: 0; }
   .history-back{
-    appearance: none; background: transparent; border: 1.5px solid var(--line);
-    color: var(--text); border-radius: 10px; padding: 6px 12px;
-    font-family: inherit; font-size: 14px; cursor: pointer;
+    appearance: none; background: transparent; border: 1px solid rgba(237,239,245,0.22);
+    color: var(--text); border-radius: 10px; min-height: 36px; padding: 0 12px;
+    font-family: inherit; font-weight: 600; font-size: var(--fs-s); cursor: pointer; flex: none;
   }
-  .history-summary{ color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 4px; }
+  .history-summary{ color: var(--muted); font-size: var(--fs-s); line-height: 1.5; margin: -8px 0 0; }
   .history-day{
     display: flex; justify-content: space-between; align-items: baseline;
-    font-weight: 700; font-size: 15px; margin: 10px 2px 2px;
+    font-weight: 700; font-size: var(--fs-m); margin: 8px 2px -4px;
   }
-  .history-top{ display: flex; justify-content: space-between; gap: 10px; font-size: 12.5px; color: var(--muted); margin-bottom: 6px; }
+  .history-top{ display: flex; justify-content: space-between; gap: 10px; font-size: var(--fs-xs); color: var(--muted); margin: 0 0 -4px; }
   .history-status-done{ color: var(--success); }
   .history-status-cancelled{ color: var(--danger); }
-  .history-more{ margin-top: 4px; }
+  .history-more{ margin: 0; }
 
   /* Раздел «Помощь». Вопросы — на встроенных <details>: раскрываются без
      скриптов, и их понимают программы чтения экрана. */
-  #view-help:not([hidden]){ display: flex; flex-direction: column; gap: 14px; }
-  #view-help .history-summary{ margin: -6px 0 0; }
+  #view-help:not([hidden]){ display: flex; flex-direction: column; gap: 16px; }
   .faq-list{
     display: flex; flex-direction: column;
     background: var(--surface-2);
@@ -615,8 +616,8 @@
   .faq-item summary{
     list-style: none;
     display: flex; align-items: center; justify-content: space-between; gap: 12px;
-    padding: 15px 0;
-    font-weight: 600; font-size: 15px; line-height: 1.4;
+    padding: 14px 0;
+    font-weight: 600; font-size: var(--fs-m); line-height: 1.4;
     cursor: pointer;
     -webkit-tap-highlight-color: transparent;
   }
@@ -637,7 +638,7 @@
   }
   .faq-answer{
     padding: 0 0 16px;
-    color: var(--muted); font-size: 14px; line-height: 1.6;
+    color: var(--muted); font-size: var(--fs-s); line-height: 1.6;
   }
   .faq-answer p{ margin: 0 0 8px; }
   .faq-answer p:last-child{ margin-bottom: 0; }
@@ -652,20 +653,20 @@
     .faq-item[open] .faq-answer{ animation: none; }
   }
 
-  .support-title{ font-weight: 700; font-size: 16px; margin-bottom: 6px; }
-  .support-text{ color: var(--muted); font-size: 14px; line-height: 1.6; margin: 0 0 14px; }
+  .support-title{ font-weight: 700; font-size: var(--fs-m); margin: 0; }
+  .support-text{ color: var(--muted); font-size: var(--fs-s); line-height: 1.6; margin: 0; }
+  .support-title + .support-text{ margin-top: -8px; }
   .support-mail{
-    font-weight: 600; font-size: 15px; color: var(--ice);
-    word-break: break-all; margin-bottom: 14px;
+    font-weight: 600; font-size: var(--fs-m); color: var(--ice);
+    word-break: break-all; margin: 0;
   }
   .help-about{
     text-align: center; color: var(--muted);
-    font-size: 12.5px; line-height: 1.7; padding: 8px 0 4px;
+    font-size: var(--fs-xs); line-height: 1.7; padding: 8px 0 4px;
   }
 
   /* Отмена поездки: кнопка на карточке и окно подтверждения снизу. */
-  .trip-cancel{ margin-top: 10px; }
-  .cancel-close{ margin-top: 10px; }
+
   .confirm-overlay{
     position: fixed; inset: 0; z-index: 80;
     display: flex; align-items: flex-end; justify-content: center;
@@ -683,16 +684,9 @@
     transform: translateY(16px); transition: transform 0.2s ease;
   }
   .confirm-overlay.open .confirm-sheet{ transform: none; }
-  .confirm-title{ font-weight: 700; font-size: 18px; margin-bottom: 8px; }
-  .confirm-text{ color: var(--muted); font-size: 14.5px; line-height: 1.55; margin: 0 0 18px; }
-  .btn-danger{
-    width: 100%; padding: 15px;
-    background: var(--danger); color: #2a0b0e;
-    border: none; border-radius: 12px;
-    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: 15px;
-    cursor: pointer;
-  }
-  .confirm-no{ margin-top: 10px; padding: 14px; font-size: 15px; color: var(--text); }
+  .confirm-title{ font-weight: 700; font-size: var(--fs-l); margin-bottom: 8px; }
+  .confirm-text{ color: var(--muted); font-size: var(--fs-s); line-height: 1.55; margin: 0 0 16px; }
+  .confirm-no{ margin-top: 8px; }
   .confirm-no:focus:not(:focus-visible){ outline: none; }
   @media (prefers-reduced-motion: reduce){
     .confirm-overlay, .confirm-sheet{ transition: none; }
@@ -727,15 +721,15 @@
     display: flex;
     align-items: center;
     gap: 14px;
-    padding: 12px 14px;
-    margin-bottom: 16px;
+    padding: 12px 16px;
+    margin: 0;
     background: var(--surface-2);
     border: 1px solid var(--line);
-    border-radius: 14px;
+    border-radius: var(--r-card);
   }
   .avail-row.free{ border-color: rgba(138, 226, 230, 0.35); }
   .avail-text{ flex: 1; min-width: 0; }
-  .avail-title{ font-weight: 700; font-size: 15px; }
+  .avail-title{ font-weight: 700; font-size: var(--fs-m); }
   .avail-row.free .avail-title{ color: var(--ice); }
 
   /* Всплывающая плашка: короткое сообщение внизу экрана, гаснет само.
@@ -751,7 +745,7 @@
     border-radius: 999px;
     background: #fff;
     color: #17181c;
-    font-size: 15px;
+    font-size: var(--fs-m);
     line-height: 1.3;
     text-align: center;
     box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
@@ -833,14 +827,12 @@
   /* ---------- Предложение водителя ----------
      Марка, под ней цвет, цена и время подачи. Номера здесь нет: пассажир
      видит его, только когда выберет водителя. */
-  .offer-big{ padding: 16px; }
-  .ob-car{ font-size: 17px; font-weight: 800; line-height: 1.3; color: var(--text); }
-  .ob-color{ font-size: 14.5px; font-weight: 500; line-height: 1.3; color: var(--text); margin-top: 1px; }
-  .ob-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 8px 0 6px; }
-  .ob-price{ font-size: 22px; font-weight: 800; color: var(--amber); line-height: 1.1; white-space: nowrap; }
-  .ob-eta{ font-size: 15px; font-weight: 700; color: var(--text); white-space: nowrap; }
-  .ob-driver{ display: flex; align-items: center; gap: 8px; font-size: 14.5px; color: var(--muted); margin-bottom: 12px; }
-  .ob-btn{ width: 100%; flex: none; padding: 12px; font-size: 15px; border-radius: 10px; }
+  .offer-big{ gap: 8px; }
+  .ob-car{ font-size: var(--fs-m); font-weight: 800; line-height: 1.3; color: var(--text); }
+  .ob-color{ font-size: var(--fs-s); font-weight: 500; line-height: 1.3; color: var(--text); }
+  .ob-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .ob-eta{ font-size: var(--fs-m); font-weight: 700; color: var(--text); white-space: nowrap; }
+  .offer-big .btn-accept{ margin-top: 4px; }
 
   /* ---------- Фото профиля ----------
      Круг под фото. Пока фото нет — первая буква имени. Картинка лежит
@@ -855,16 +847,24 @@
   .avatar img{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
 
   /* ---------- Экран ожидания: номер первым ---------- */
-  .car-top-plate{ display: flex; justify-content: center; margin: 2px 0 16px; }
+  .car-top-plate{ display: flex; justify-content: center; margin: 4px 0; }
   .car-top-plate .plate{ font-size: min(42px, 10.4vw); }
   .car-top-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-  .car-top-name{ font-size: 21px; font-weight: 800; line-height: 1.25; }
-  .car-top-color{ display: block; font-size: 16px; font-weight: 500; margin-top: 2px; }
-  .car-top-when{ font-size: 21px; font-weight: 800; color: var(--amber); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .car-top-name{ font-size: var(--fs-l); font-weight: 800; line-height: 1.25; }
+  .car-top-color{ display: block; font-size: var(--fs-m); font-weight: 500; margin-top: 2px; }
+  .car-top-when{ font-size: var(--fs-l); font-weight: 800; color: var(--amber); white-space: nowrap; font-variant-numeric: tabular-nums; }
   .car-top-when.here{ color: var(--success); }
-  .car-top-driver{ display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 15px; color: var(--muted); }
-  .route-bottom{ margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
-  .route-bottom .order-meta{ margin-bottom: 0; }
+  .route-bottom{ padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
+
+  /* Карточка поездки у водителя: крупно адрес, куда ехать. */
+  .trip-label{ font-size: var(--fs-xs); color: var(--muted); }
+  .trip-address{ font-size: var(--fs-l); font-weight: 800; line-height: 1.25; }
+  .trip-label + .trip-address{ margin-top: -10px; }
+  .trip-address + .order-meta{ margin-top: -8px; }
+  .trip-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .trip-when{ font-size: var(--fs-l); font-weight: 800; color: var(--amber); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .trip-when small{ font-size: var(--fs-s); font-weight: 600; color: var(--muted); margin-right: 6px; }
+  .trip-when.late{ font-size: var(--fs-m); }
 
   /* ---------- Нажатие кнопок ----------
      На iPhone нажатие по умолчанию никак не видно, а системную подсветку мы
@@ -878,31 +878,31 @@
     button:not(:disabled):active, .callback-number:active{ transform: none; }
   }
 
-  #view-car:not([hidden]){ display: flex; flex-direction: column; gap: 14px; }
-  #view-car .history-summary{ margin: -6px 0 0; }
-  .car-preview{ display: flex; justify-content: center; padding: 6px 0 20px; }
+  #view-car:not([hidden]){ display: flex; flex-direction: column; gap: 16px; }
+  .car-preview{ display: flex; justify-content: center; padding: 4px 0 8px; }
   .car-preview .plate{ font-size: 30px; }
   .chip-row{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
   .brand-chip, .color-chip{
     appearance: none; font-family: inherit; cursor: pointer;
     background: var(--surface); color: var(--text);
     border: 1px solid var(--line); border-radius: 999px;
-    font-size: 13.5px; font-weight: 600;
+    font-size: var(--fs-s); font-weight: 600;
     -webkit-tap-highlight-color: transparent;
   }
   .brand-chip{ padding: 7px 12px; color: var(--muted); }
   .color-chip{ display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 6px; }
-  .color-chip.active{ border-color: var(--success); box-shadow: inset 0 0 0 1px var(--success); }
+  .color-chip.active{ border-color: var(--ice); box-shadow: inset 0 0 0 1px var(--ice); }
   .brand-chip:focus-visible, .color-chip:focus-visible{ outline: none; border-color: var(--ice); }
   .swatch{ width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28); }
   .swatch-other{ background: conic-gradient(#d33a3a, #f2c94c, #2f8f4e, #2d55c8, #7a4bc4, #d33a3a); }
-  #car-color-other{ margin-top: 10px; }
-  .form-error{ color: var(--danger); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
-  .field-hint{ color: var(--muted); font-size: 12.5px; line-height: 1.5; margin-top: 6px; }
+  #car-color-other{ margin-top: 8px; }
+  .form-error{ color: var(--danger); font-size: var(--fs-s); line-height: 1.5; margin: 0; }
+  .field-hint{ color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; margin-top: 6px; }
 
-  .push-card .push-title{ font-weight: 700; margin-bottom: 6px; }
-  .push-card .push-text{ color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
+  .push-card .push-title{ font-weight: 700; font-size: var(--fs-m); margin: 0; }
+  .push-card .push-text{ color: var(--muted); font-size: var(--fs-s); line-height: 1.5; margin: -8px 0 0; }
   .push-card .push-actions{ display: flex; gap: 8px; }
+  .push-card .push-actions > button{ flex: 1; }
   .push-card .push-actions button{ flex: 1; margin: 0; }
 
   [hidden]{ display: none !important; }
@@ -2127,13 +2127,6 @@ void main(){
     return 'Ваш заказ';
   }
 
-  function driverEtaLine(o){
-    const c = formatEtaCountdown(o);
-    if(!c) return 'Обещали доехать через ' + esc(o.eta) + ' мин';
-    if(c.expired) return 'Время, которое вы называли, вышло';
-    return 'Обещали доехать: <span data-tick="eta" data-order-id="' + o.id + '">' + c.text + '</span>';
-  }
-
   // Unified waiting deadline: 0-3 min visible countdown, 3-5 min quiet grace,
   // 5+ min overdue alert to both sides — independent of whether passenger clicked "Выхожу".
   function waitPhase(arrivedAt){
@@ -2148,24 +2141,20 @@ void main(){
     renderedWaitPhase.passenger[order.id] = phase;
     if(order.exiting){
       if(phase === 'overdue'){
-        return `
-          <div class="wait-text alert">Похоже, вы задерживаетесь — сообщите водителю, если нужна ещё пара минут.</div>
-          <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
-        `;
+        return `<div class="wait-text alert">Похоже, вы задерживаетесь — сообщите водителю, если нужна ещё пара минут.</div>`;
       }
       return `<div class="wait-text">Вы сообщили водителю, что выходите.</div>`;
     }
     if(phase === 'overdue'){
       return `
         <div class="wait-text alert">Похоже, вы задерживаетесь — сообщите водителю, если нужна ещё пара минут.</div>
-        <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
         <button class="btn-primary btn-exit" onclick="exitPassenger(${order.id})">Выхожу</button>
       `;
     }
     if(phase === 'active'){
       return `
         <div class="wait-block">
-          <div class="wait-text">${esc(order.driverName)} ждёт вас, бесплатное ожидание 3 минуты</div>
+          <div class="wait-text">${esc(order.driverName)} ждёт вас. Бесплатное ожидание — 3 минуты</div>
           <div class="wait-timer" data-tick="wait" data-order-id="${order.id}">${formatWait(order.arrivedAt)}</div>
         </div>
         <button class="btn-primary btn-exit" onclick="exitPassenger(${order.id})">Выхожу</button>
@@ -2208,17 +2197,19 @@ void main(){
       <div class="order-list offers-list">
         ${list.map(of => `
           <div class="req-card offer-card offer-big">
-            ${of.car ? `<div class="ob-car">${esc(of.car.model)}</div>` : ''}
-            ${of.car && of.car.color ? `<div class="ob-color">${esc(of.car.color)}</div>` : ''}
+            ${of.car ? `<div>
+              <div class="ob-car">${esc(of.car.model)}</div>
+              ${of.car.color ? `<div class="ob-color">${esc(of.car.color)}</div>` : ''}
+            </div>` : ''}
             <div class="ob-row">
-              <span class="ob-price">${esc(of.price)} ₽</span>
+              <span class="price-l">${esc(of.price)} ₽</span>
               <span class="ob-eta">через ${esc(of.eta)} мин</span>
             </div>
-            <div class="ob-driver">
-              ${avatarHtml(of.driverName, driverAvatar(of.driverId), 26)}
+            <div class="person-line">
+              ${avatarHtml(of.driverName, driverAvatar(of.driverId), 28)}
               <span>${esc(of.driverName)} ${ratingBadge(driverProfiles[of.driverId])}</span>
             </div>
-            <button class="btn-accept ob-btn" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
+            <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
           </div>
         `).join('')}
       </div>
@@ -2433,18 +2424,18 @@ void main(){
             <span class="car-top-name">${esc(order.car.model)}${order.car.color ? `<span class="car-top-color">${esc(order.car.color)}</span>` : ''}</span>
             ${carWhenHtml(order)}
           </div>
-          <div class="car-top-driver">
-            ${avatarHtml(order.driverName, driverAvatar(order.driverId), 36)}
+          <div class="person-line">
+            ${avatarHtml(order.driverName, driverAvatar(order.driverId), 28)}
             <span>${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</span>
           </div>
         ` : `
           ${routeHtml}
-          ${order.driverName ? `<div class="order-meta">${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</div>` : ''}
+          ${order.driverName ? `<div class="person-line">
+            ${avatarHtml(order.driverName, driverAvatar(order.driverId), 28)}
+            <span>${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}${order.car ? ' · ' + esc(carTitle(order.car)) : ''}</span>
+          </div>` : ''}
         `}
         ${order.status === 'searching' ? passengerOffersList(order) : ''}
-        ${order.status === 'accepted' || order.status === 'arrived' ? `
-          <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
-        ` : ''}
         ${order.status === 'arrived' ? `
           <div class="driver-info">
             ${passengerWaitBlock(order)}
@@ -2456,7 +2447,8 @@ void main(){
           </div>
         ` : ''}
         ${order.status === 'accepted' || order.status === 'arrived' ? `
-          <div class="order-actions">
+          <div class="btn-stack">
+            <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
             <button class="btn-ghost" onclick="askCancelTrip(${order.id}, 'passenger')">Отменить поездку</button>
           </div>
         ` : ''}
@@ -2594,7 +2586,7 @@ void main(){
           <div class="confirm-title" id="confirm-title">${esc(title)}</div>
           <p class="confirm-text">${esc(text)}</p>
           <button class="btn-danger" data-act="ok">${esc(okText)}</button>
-          <button class="btn-ghost confirm-no" data-act="no">${esc(cancelText)}</button>
+          <button class="btn-call confirm-no" data-act="no">${esc(cancelText)}</button>
         </div>`;
       function close(result){
         wrap.classList.remove('open');
@@ -2735,7 +2727,11 @@ void main(){
     const mine = [...myOffers, ...enRoute, ...arrived, ...inProgress];
     const needsRating = orders.filter(o => o.status === 'done' && o.driverId === driverId && o.driverRating == null);
 
-    let html = `<h1 class="view-title driver-title">Лента заказов</h1>`;
+    const headline = inProgress.length ? 'Везёте пассажира'
+      : arrived.length ? 'Вы на месте'
+      : enRoute.length ? 'Едете к пассажиру'
+      : 'Лента заказов';
+    let html = `<h1 class="view-title driver-title">${headline}</h1>`;
 
     if(banned) html += bannedDriverCard();
     else if(!isBusy) html += driverNeedsCar() ? carNeededCard() : driverAvailabilityBlock();
@@ -2759,33 +2755,17 @@ void main(){
 
     if(mine.length){
       html += `<div class="order-list">`;
-      html += mine.map(o => `
+      html += mine.map(o => o.status === 'searching' ? `
         <div class="req-card">
           <div class="req-top">
             <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
             <div class="req-time">${esc(o.time)}</div>
           </div>
-          <div class="order-meta"><span class="order-price">${esc(o.price)} ₽</span> ${ratingBadge(passengerProfiles[o.passengerId])}</div>
+          <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span><span class="order-meta">· пассажир ${ratingBadge(passengerProfiles[o.passengerId])}</span></div>
           ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
-          ${o.status === 'searching' ? driverOfferBlock(o, offers.find(of => of.orderId === o.id && of.driverId === driverId)) : ''}
-          ${o.status === 'accepted' ? `<div class="wait-text">${driverEtaLine(o)}</div>` : ''}
-          ${o.status === 'arrived' ? driverWaitBlock(o) : ''}
-          ${o.status === 'in_progress' ? `<div class="wait-text">Поездка началась</div>` : ''}
-          ${o.status !== 'searching' ? `
-          <div class="req-actions">
-            ${o.status === 'accepted'
-              ? `<button class="btn-accept" onclick="arriveOrder(${o.id})">Я на месте</button>`
-              : o.status === 'arrived'
-              ? `<button class="btn-accept" onclick="startTrip(${o.id})">Начать поездку</button>`
-              : `<button class="btn-complete" onclick="completeOrder(${o.id})">Завершить поездку</button>`}
-          </div>
-          ` : ''}
-          ${o.status === 'accepted' || o.status === 'arrived' ? `
-            <button class="btn-call" onclick="callCounterpart(${o.id})">Позвонить пассажиру</button>
-            <button class="btn-ghost trip-cancel" onclick="askCancelTrip(${o.id}, 'driver')">Отменить поездку</button>
-          ` : ''}
+          ${driverOfferBlock(o, offers.find(of => of.orderId === o.id && of.driverId === driverId))}
         </div>
-      `).join('');
+      ` : driverTripCard(o)).join('');
       html += `</div>`;
     }
 
@@ -2797,28 +2777,27 @@ void main(){
             <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
             <div class="req-time">${esc(o.time)}</div>
           </div>
-          <div class="order-meta"><span class="order-price">${esc(o.price)} ₽</span> ${ratingBadge(passengerProfiles[o.passengerId])}</div>
+          <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span><span class="order-meta">· пассажир ${ratingBadge(passengerProfiles[o.passengerId])}</span></div>
           ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
           ${etaSelectingId === o.id ? `
             <div class="eta-picker">
-              <div class="eta-label">Цена (можно предложить свою)</div>
-              <div class="price-picker">
+              <div class="field">
+                <label for="price-input-${o.id}">Ваша цена, ₽</label>
                 <input id="price-input-${o.id}" type="number" min="0" inputmode="numeric"
                        value="${esc(etaPriceDrafts[o.id] !== undefined ? etaPriceDrafts[o.id] : o.price)}"
-                       oninput="etaPriceDrafts[${o.id}] = this.value">
+                       oninput="etaPriceDrafts[${o.id}] = this.value; updateOfferButton(${o.id})">
               </div>
-              <div class="eta-label">Через сколько будете на месте?</div>
-              <div class="eta-options">
-                <button class="eta-chip${etaSelectedMinutes[o.id] === 3 ? ' active' : ''}" onclick="selectEta(${o.id}, 3)">3 мин</button>
-                <button class="eta-chip${etaSelectedMinutes[o.id] === 5 ? ' active' : ''}" onclick="selectEta(${o.id}, 5)">5 мин</button>
-                <button class="eta-chip${etaSelectedMinutes[o.id] === 10 ? ' active' : ''}" onclick="selectEta(${o.id}, 10)">10 мин</button>
-              </div>
-              <div class="eta-custom">
-                <input id="eta-input-${o.id}" type="number" min="1" placeholder="Своё время, мин"
+              <div class="field">
+                <label>Через сколько будете на месте</label>
+                <div class="eta-options">
+                  ${[3, 5, 10].map(m => `<button class="eta-chip${etaSelectedMinutes[o.id] === m ? ' active' : ''}" data-min="${m}" onclick="selectEta(${o.id}, ${m})">${m} мин</button>`).join('')}
+                </div>
+                <input id="eta-input-${o.id}" type="number" min="1" inputmode="numeric" placeholder="Своё время, мин"
                        value="${etaSelectedMinutes[o.id] && ![3,5,10].includes(etaSelectedMinutes[o.id]) ? esc(etaSelectedMinutes[o.id]) : ''}"
-                       oninput="etaSelectedMinutes[${o.id}] = this.value ? Number(this.value) : null">
-                <button class="btn-accept" onclick="confirmAcceptSelected(${o.id})">ОК</button>
+                       oninput="etaSelectedMinutes[${o.id}] = this.value ? Number(this.value) : null; updateOfferButton(${o.id})">
               </div>
+              ${offerButtonHtml(o)}
+              <button class="btn-ghost" onclick="cancelEtaSelection()">Не сейчас</button>
             </div>
           ` : `
             <div class="req-actions">
@@ -2842,6 +2821,89 @@ void main(){
     setHtml(el, html);
   }
 
+
+  // Карточка идущей поездки у водителя: крупно адрес, куда ехать, цена,
+  // отсчёт до обещанного времени, пассажир и кнопки — зеркально экрану пассажира.
+  function driverTripCard(o){
+    const pickup = o.status !== 'in_progress';
+    return `
+      <div class="req-card">
+        <div class="trip-label">${pickup ? 'Забрать по адресу' : 'Везёте по адресу'}</div>
+        <div class="trip-address">${esc(pickup ? o.from : o.to)}</div>
+        <div class="order-meta">${pickup ? 'дальше → ' + esc(o.to) : 'откуда: ' + esc(o.from)}</div>
+        <div class="trip-row">
+          <span class="price-l">${esc(o.price)} ₽</span>
+          ${o.status === 'accepted' ? driverEtaHtml(o) : ''}
+        </div>
+        <div class="person-line">
+          ${avatarHtml('Пассажир', null, 28)}
+          <span>Пассажир ${ratingBadge(passengerProfiles[o.passengerId])}</span>
+        </div>
+        ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
+        ${o.status === 'arrived' ? `<div class="driver-info">${driverWaitBlock(o)}</div>` : ''}
+        <div class="btn-stack">
+          ${o.status === 'accepted'
+            ? `<button class="btn-accept" onclick="arriveOrder(${o.id})">Я на месте</button>`
+            : o.status === 'arrived'
+            ? `<button class="btn-accept" onclick="startTrip(${o.id})">Начать поездку</button>`
+            : `<button class="btn-complete" onclick="completeOrder(${o.id})">Завершить поездку</button>`}
+          ${pickup ? `
+            <button class="btn-call" onclick="callCounterpart(${o.id})">Позвонить пассажиру</button>
+            <button class="btn-ghost" onclick="askCancelTrip(${o.id}, 'driver')">Отменить поездку</button>
+          ` : ''}
+        </div>
+      </div>`;
+  }
+
+  // Справа от цены: сколько осталось до обещанного времени подачи.
+  function driverEtaHtml(o){
+    const c = formatEtaCountdown(o);
+    if(!c) return `<span class="trip-when">${esc(o.eta)} мин</span>`;
+    if(c.expired) return '<span class="trip-when late">время вышло</span>';
+    return `<span class="trip-when"><small>осталось</small><span data-tick="eta" data-order-id="${o.id}">${c.text}</span></span>`;
+  }
+
+  // Кнопка отправки предложения. На ней всегда то, что уйдёт пассажиру:
+  // цена и время. Пока чего-то не хватает — бледная и подсказывает, чего.
+  function offerButtonState(id){
+    const order = orders.find(o => o.id === id);
+    const price = String(etaPriceDrafts[id] !== undefined ? etaPriceDrafts[id] : (order ? order.price : '')).trim();
+    const minutes = etaSelectedMinutes[id];
+    if(!price) return { text: 'Укажите цену', ready: false };
+    if(!minutes || minutes <= 0) return { text: 'Выберите время подачи', ready: false };
+    return { text: `Предложить ${price} ₽ · ${minutes} мин`, ready: true };
+  }
+
+  function offerButtonHtml(o){
+    const st = offerButtonState(o.id);
+    return `<button class="btn-accept" id="offer-btn-${o.id}" onclick="confirmAcceptSelected(${o.id})" ${st.ready ? '' : 'disabled'}>${esc(st.text)}</button>`;
+  }
+
+  // Обновляет кнопку и выделение «3/5/10 мин» прямо в разметке, без
+  // перерисовки: поле, в котором сейчас печатают, не теряет фокус.
+  function updateOfferButton(id){
+    const btn = document.getElementById('offer-btn-' + id);
+    if(btn){
+      const st = offerButtonState(id);
+      btn.textContent = st.text;
+      btn.disabled = !st.ready;
+    }
+    const card = document.getElementById('req-' + id);
+    if(card){
+      card.querySelectorAll('.eta-chip').forEach(ch => {
+        ch.classList.toggle('active', Number(ch.dataset.min) === etaSelectedMinutes[id]);
+      });
+    }
+  }
+
+  function cancelEtaSelection(){
+    if(etaSelectingId != null){
+      delete etaPriceDrafts[etaSelectingId];
+      delete etaSelectedMinutes[etaSelectingId];
+    }
+    etaSelectingId = null;
+    renderDriver();
+  }
 
   // «Принять» без машины открывает экран машины; после сохранения водитель
   // сразу возвращается к этому заказу и выбирает цену и время.
@@ -2898,6 +2960,8 @@ void main(){
   // Клик по кнопке "3/5/10 мин" — только выбирает время, не отправляет предложение
   function selectEta(id, minutes){
     etaSelectedMinutes[id] = minutes;
+    const custom = document.getElementById('eta-input-' + id);
+    if(custom) custom.value = '';
     renderDriver();
   }
 
@@ -3128,7 +3192,7 @@ void main(){
   // Вопросы свои для каждой роли, как и история. Тексты — просто список ниже:
   // поправить ответ = поменять строку. В ответах можно <p> и <b>.
   // Адрес поддержки пока почта; когда появится постоянный канал — меняется здесь.
-  const APP_VERSION = '0.8';
+  const APP_VERSION = '0.9';
   const SUPPORT_EMAIL = 'elva.service.support@gmail.com';
 
   const HELP_PUSH_ANSWER = `
