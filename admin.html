@@ -184,6 +184,28 @@
   .stuck-badge{ color: var(--danger); font-weight: 700; font-size: 12.5px; }
   .people-empty{ text-align: center; color: var(--muted); padding: 40px 12px; }
 
+  /* Цифры */
+  .tiles{ display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile{
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px 14px; min-width: 0;
+  }
+  .tile .num{ font-family: 'Unbounded', sans-serif; font-weight: 600; font-size: 22px; line-height: 1.2; }
+  .tile .lbl{ font-size: 12.5px; color: var(--muted); margin-top: 2px; }
+  .tile .sub{ font-size: 12px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+  .tile.good .num{ color: var(--success); }
+  .tile.bad .num{ color: var(--danger); }
+  .tile.accent .num{ color: var(--amber); }
+  .chart{ display: flex; align-items: flex-end; gap: 4px; height: 150px; margin-top: 12px; }
+  .bar{ flex: 1; min-width: 0; display: flex; flex-direction: column-reverse; height: 100%; }
+  .bar .d{ background: var(--success); border-radius: 3px 3px 0 0; }
+  .bar .c{ background: var(--danger); opacity: 0.85; }
+  .bar .d + .c{ border-radius: 3px 3px 0 0; }
+  .chart-labels{ display: flex; gap: 4px; margin-top: 6px; }
+  .chart-labels span{ flex: 1; min-width: 0; text-align: center; font-size: 10.5px; color: var(--muted); overflow: hidden; }
+  .legend{ display: flex; gap: 14px; font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .legend i{ display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+
   /* ===== Компьютер: меню слева, содержимое справа, карточка рядом с поиском ===== */
   .people-split{ display: block; }
   #people-right:empty{ display: none; }
@@ -215,6 +237,9 @@
     .row.click:hover{ background: rgba(255,255,255,0.03); }
     .row.click.sel{ background: rgba(143,224,232,0.07); border-radius: 8px; }
     .people-mobile-back{ display: none; }
+    .tiles{ grid-template-columns: repeat(3, 1fr); }
+    .tiles.four{ grid-template-columns: repeat(4, 1fr); }
+    .chart{ height: 200px; }
   }
   [hidden]{ display: none !important; }
 </style>
@@ -373,7 +398,7 @@
   const TABS = [
     { id: 'people',  title: 'Люди',   render: renderPeople },
     { id: 'orders',  title: 'Заказы', render: renderOrders },
-    { id: 'stats',   title: 'Цифры',  render: () => soon('Заказы, отмены, новые люди, водители в сети — в части 5.') },
+    { id: 'stats',   title: 'Цифры',  render: renderStats },
     { id: 'log',     title: 'Журнал', render: renderLog },
     { id: 'admins',  title: 'Админы', render: renderAdmins },
     { id: 'account', title: 'Пароль', render: renderAccount }
@@ -629,6 +654,12 @@
   }
   const BACK = () => isWide() ? '' : `<button class="back" onclick="renderPeople()">← К поиску</button>`;
 
+  // «А123ВС14» -> «А123ВС 14»
+  function carPlateText(p){
+    const m = /^(.)(\d{3})(..)(\d{2,3})$/.exec(p || '');
+    return m ? m[1] + m[2] + m[3] + ' ' + m[4] : (p || '');
+  }
+
   async function openPerson(id){
     selectedPersonId = id;
     if(isWide() && peopleResults) showResults(peopleResults);
@@ -675,6 +706,9 @@
         <div class="stat-line">Рейтинг: ${esc(ratingText(drv.rating_sum, drv.rating_count))}</div>
         <div class="stat-line">Поездок: ${drv.done} · отменил сам: ${drv.cancelled_self} · отменил пассажир: ${drv.cancelled_other}</div>
         <div class="stat-line">Уведомления о заказах: ${drv.is_available ? 'включены («Свободен»)' : 'выключены («Занят»)'}</div>
+        <div class="stat-line">Машина: ${drv.car
+          ? esc(drv.car.model + ', ' + drv.car.color + ', ' + carPlateText(drv.car.plate))
+          : '<span class="muted">не добавлена — принимать заказы не может</span>'}</div>
       </div>` : ''}
 
       <div class="card wide">
@@ -772,6 +806,77 @@
     const { error } = await sb.rpc('admin_order_complete', { p_order_id: id, p_reason: reason.trim() });
     if(error){ alert('Не получилось: ' + error.message); return; }
     renderOrders();
+  }
+
+  // ---------- цифры ----------
+  let statsDays = 7;
+  const STATS_PERIODS = [[1, 'Сегодня'], [7, '7 дней'], [30, '30 дней']];
+
+  function tile(num, label, sub, kind){
+    return `<div class="tile ${kind || ''}"><div class="num">${num}</div><div class="lbl">${esc(label)}</div>${sub ? `<div class="sub">${sub}</div>` : ''}</div>`;
+  }
+  function money(n){ return Number(n || 0).toLocaleString('ru-RU') + ' ₽'; }
+
+  async function renderStats(){
+    $('tab-body').innerHTML = `<div class="card">
+      <div class="orders-head"><h2 style="margin:0">Цифры</h2><button class="link" onclick="renderStats()">Обновить</button></div>
+      <div class="chips" style="margin-top:12px">${STATS_PERIODS.map(([d, t]) =>
+        `<button class="chip ${statsDays === d ? 'on' : ''}" onclick="statsDays=${d};renderStats()">${t}</button>`).join('')}</div>
+      <div id="stats-body" class="muted small" style="margin-top:14px">Считаем…</div>
+    </div>`;
+    const { data, error } = await sb.rpc('admin_stats', { p_days: statsDays });
+    const box = $('stats-body');
+    if(!box) return;
+    if(error){ box.textContent = 'Ошибка: ' + error.message; return; }
+    box.classList.remove('muted', 'small');
+    const o = data.orders, pp = data.people, now = data.now;
+
+    let chart = '';
+    if(statsDays > 1 && data.days && data.days.length){
+      const max = Math.max(1, ...data.days.map(d => d.done + d.cancelled));
+      chart = `<h2 style="margin-top:22px">По дням</h2>
+        <div class="chart">${data.days.map(d => `
+          <div class="bar" title="${esc(d.day)}: выполнено ${d.done}, отменено ${d.cancelled}">
+            <div class="d" style="height:${d.done / max * 100}%"></div>
+            <div class="c" style="height:${d.cancelled / max * 100}%"></div>
+          </div>`).join('')}</div>
+        <div class="chart-labels">${data.days.map((d, i) => {
+          const day = Number(d.day.slice(8));
+          const show = data.days.length <= 10 || i % 5 === 0 || i === data.days.length - 1;
+          return `<span>${show ? day : ''}</span>`;
+        }).join('')}</div>
+        <div class="legend"><span><i style="background:var(--success)"></i>выполнено</span><span><i style="background:var(--danger)"></i>отменено</span></div>`;
+    }
+
+    box.innerHTML = `
+      <h2>Сейчас</h2>
+      <div class="tiles">
+        ${tile(now.in_app, 'в приложении')}
+        ${tile(now.drivers_free, 'водителей «Свободен»')}
+        ${tile(now.active_orders, 'активных заказов', '', now.active_orders ? 'accent' : '')}
+      </div>
+
+      <h2 style="margin-top:22px">Заказы</h2>
+      <div class="tiles">
+        ${tile(o.created, 'создано')}
+        ${tile(o.done, 'выполнено', '', 'good')}
+        ${tile(o.cancelled, 'отменено',
+            `пассажиром ${o.cancelled_passenger} · водителем ${o.cancelled_driver} · поддержкой ${o.cancelled_admin}`, o.cancelled ? 'bad' : '')}
+        ${tile(o.done_share == null ? '—' : o.done_share + '%', 'доезжают', 'доля выполненных среди завершившихся')}
+        ${tile(money(o.turnover), 'оборот', 'сумма выполненных поездок', 'accent')}
+        ${tile(o.avg_find_min == null ? '—' : String(o.avg_find_min).replace('.', ',') + ' мин', 'поиск водителя', 'в среднем от заказа до выбора')}
+      </div>
+
+      <h2 style="margin-top:22px">Люди</h2>
+      <div class="tiles">
+        ${tile(pp.new, 'новых')}
+        ${tile(pp.active, 'заходили', 'считается с 25 сентября')}
+        ${tile(pp.drivers_worked, 'водителей работали', 'выбраны хотя бы на 1 заказ')}
+      </div>
+      ${chart}
+      <div class="note">${statsDays === 1 || !data.days || !data.days.length
+        ? 'С полуночи'
+        : 'С ' + new Date(data.days[0].day + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} по времени Олёкминска.</div>`;
   }
 
   // ---------- администраторы ----------

@@ -799,6 +799,74 @@
 
 
 
+  /* ---------- Машина водителя ----------
+     Госномер рисуется как настоящий российский знак: белое поле, чёрная
+     рамка, слева серия и номер, справа регион и RUS с флагом. Размер задаётся
+     одним font-size — всё остальное в em, поэтому один и тот же знак годится
+     и в строку предложения, и крупно на экране ожидания. */
+  .plate{
+    display: inline-flex; align-items: stretch;
+    background: #fff; color: #111;
+    border: 0.09em solid #111; border-radius: 0.2em;
+    box-shadow: 0 0 0 0.06em rgba(255,255,255,0.55);
+    font-family: 'Manrope', sans-serif; font-weight: 700;
+    font-variant-numeric: tabular-nums; line-height: 1;
+    white-space: nowrap; vertical-align: middle;
+  }
+  .plate-main{ display: flex; align-items: baseline; gap: 0.16em; padding: 0.2em 0.36em 0.16em; }
+  .plate-main .pl{ font-size: 0.8em; }
+  .plate-reg{
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    border-left: 0.09em solid #111; padding: 0.08em 0.28em;
+  }
+  .plate-reg .pr{ font-size: 0.74em; }
+  .plate-rus{ display: flex; align-items: center; gap: 0.2em; font-size: 0.28em; letter-spacing: 0.04em; margin-top: 0.15em; }
+  .plate-flag{
+    display: inline-block; width: 1.5em; height: 1em;
+    background: linear-gradient(#fff 0 33%, #1c57b8 33% 66%, #d52b1e 66%);
+    box-shadow: 0 0 0 0.12em rgba(0,0,0,0.25);
+  }
+  .plate .ph{ color: #c3c6cc; }
+  .plate-sm{ font-size: 14px; }
+  .plate-lg{ font-size: 34px; }
+
+  .offer-card .order-meta{ margin-bottom: 10px; }
+  .offer-card .req-actions{ margin-top: 14px; }
+  .offer-car{
+    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+    font-size: 13.5px; color: var(--text); margin-bottom: 10px;
+  }
+
+  .car-hero{
+    margin-top: 14px; padding: 18px 12px 20px;
+    border-radius: 14px; background: var(--surface);
+    border: 1px solid var(--line);
+    text-align: center;
+  }
+  .car-hero-model{ font-weight: 700; font-size: 16px; margin-bottom: 14px; }
+
+  #view-car:not([hidden]){ display: flex; flex-direction: column; gap: 14px; }
+  #view-car .history-summary{ margin: -6px 0 0; }
+  .car-preview{ display: flex; justify-content: center; padding: 6px 0 20px; }
+  .car-preview .plate{ font-size: 30px; }
+  .chip-row{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .brand-chip, .color-chip{
+    appearance: none; font-family: inherit; cursor: pointer;
+    background: var(--surface); color: var(--text);
+    border: 1px solid var(--line); border-radius: 999px;
+    font-size: 13.5px; font-weight: 600;
+    -webkit-tap-highlight-color: transparent;
+  }
+  .brand-chip{ padding: 7px 12px; color: var(--muted); }
+  .color-chip{ display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 6px; }
+  .color-chip.active{ border-color: var(--success); box-shadow: inset 0 0 0 1px var(--success); }
+  .brand-chip:focus-visible, .color-chip:focus-visible{ outline: none; border-color: var(--ice); }
+  .swatch{ width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28); }
+  .swatch-other{ background: conic-gradient(#d33a3a, #f2c94c, #2f8f4e, #2d55c8, #7a4bc4, #d33a3a); }
+  #car-color-other{ margin-top: 10px; }
+  .form-error{ color: var(--danger); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
+  .field-hint{ color: var(--muted); font-size: 12.5px; line-height: 1.5; margin-top: 6px; }
+
   .push-card .push-title{ font-weight: 700; margin-bottom: 6px; }
   .push-card .push-text{ color: var(--muted); font-size: 13.5px; line-height: 1.5; margin: 0 0 12px; }
   .push-card .push-actions{ display: flex; gap: 8px; }
@@ -1042,6 +1110,7 @@ void main(){
 
     <div class="menu-items">
       <button class="menu-item" onclick="openHistory()">История заказов</button>
+      <button class="menu-item" id="menu-car" onclick="openCarFromMenu()" hidden>Моя машина</button>
       <button class="menu-item" onclick="sendTestPush()">Проверить уведомления</button>
       <button class="menu-item" onclick="openHelp()">Помощь</button>
       <button class="menu-item menu-item-muted" onclick="logoutFromMenu()">Выйти</button>
@@ -1090,6 +1159,7 @@ void main(){
     <section id="view-driver" hidden></section>
     <section id="view-history" hidden></section>
     <section id="view-help" hidden></section>
+    <section id="view-car" hidden></section>
     <section id="view-banned" hidden></section>
   </main>
 
@@ -1293,7 +1363,8 @@ void main(){
       cancelledAt: row.cancelled_at,
       cancelledBy: row.cancelled_by,
       completedBy: row.completed_by,
-      createdAt: row.created_at
+      createdAt: row.created_at,
+      car: rowToCar(row)
     };
   }
 
@@ -1306,8 +1377,15 @@ void main(){
       driverName: row.driver_name,
       price: row.price,
       eta: row.eta,
-      createdAt: Date.parse(row.created_at)
+      createdAt: Date.parse(row.created_at),
+      car: rowToCar(row)
     };
+  }
+
+  // Машина из строки заказа или предложения. У старых записей её нет — null.
+  function rowToCar(row){
+    if(!row || !row.car_plate) return null;
+    return { model: row.car_model || '', color: row.car_color || '', plate: row.car_plate };
   }
 
   async function fetchOrders(){
@@ -1432,7 +1510,7 @@ void main(){
     if(!sb || !myProfile || resyncInFlight) return;
     resyncInFlight = true;
     try {
-      await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles(), fetchBan()]);
+      await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles(), fetchBan(), fetchMyCar()]);
       applyBan();
       if(!realtimeAlive()) subscribeRealtime();
     } catch(e){
@@ -1515,7 +1593,7 @@ void main(){
     switchView(currentView);
     startPresence();
     initPush();
-    await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles(), fetchBan()]);
+    await Promise.all([fetchOrders(), fetchOffers(), fetchProfiles(), fetchBan(), fetchMyCar()]);
     applyBan();
     try {
       subscribeRealtime();
@@ -1573,7 +1651,7 @@ void main(){
   function applyBan(){
     const el = document.getElementById('view-banned');
     if(fullBanActive()){
-      for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help']){
+      for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car']){
         document.getElementById(id).hidden = true;
       }
       el.innerHTML = `
@@ -1621,6 +1699,7 @@ void main(){
     if(!appStarted || document.visibilityState !== 'visible') return null;
     if(!document.getElementById('view-history').hidden) return null;
     if(!document.getElementById('view-help').hidden) return null;
+    if(!document.getElementById('view-car').hidden) return null;
     return currentView === 'driver' ? 'driver' : 'passenger';
   }
 
@@ -2092,8 +2171,9 @@ void main(){
     return `
       <div class="order-list offers-list">
         ${list.map(of => `
-          <div class="req-card">
+          <div class="req-card offer-card">
             <div class="order-meta">${esc(of.driverName)} ${ratingBadge(driverProfiles[of.driverId])}</div>
+            ${of.car ? `<div class="offer-car"><span>${esc(carTitle(of.car))}</span>${plateHtml(of.car.plate, 'sm')}</div>` : ''}
             <div class="order-meta"><span class="order-price">${esc(of.price)} ₽</span> · подача через ${esc(of.eta)} мин</div>
             <div class="req-actions">
               <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
@@ -2294,6 +2374,12 @@ void main(){
         <div class="order-route">${esc(order.from)}<span class="arrow">→</span>${esc(order.to)}</div>
         <div class="order-meta">Заказ №${order.id} · ${esc(order.time)} · <span class="order-price">${esc(order.price)} ₽</span></div>
         ${order.driverName ? `<div class="order-meta">${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</div>` : ''}
+        ${(order.status === 'accepted' || order.status === 'arrived') && order.car ? `
+          <div class="car-hero">
+            <div class="car-hero-model">${esc(carTitle(order.car))}</div>
+            ${plateHtml(order.car.plate, 'lg')}
+          </div>
+        ` : ''}
         ${order.status === 'searching' ? passengerOffersList(order) : ''}
         ${order.status === 'accepted' || order.status === 'arrived' ? `
           <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
@@ -2589,7 +2675,7 @@ void main(){
     let html = `<h1 class="view-title driver-title">Лента заказов</h1>`;
 
     if(banned) html += bannedDriverCard();
-    else if(!isBusy) html += driverAvailabilityBlock();
+    else if(!isBusy) html += driverNeedsCar() ? carNeededCard() : driverAvailabilityBlock();
 
     if(needsRating.length){
       html += `<div class="order-list">`;
@@ -2643,7 +2729,7 @@ void main(){
     if(pending.length){
       html += `${mine.length ? '<div class="section-label">Свободные заказы</div>' : ''}<div class="order-list">`;
       html += pending.map(o => `
-        <div class="req-card">
+        <div class="req-card" id="req-${o.id}">
           <div class="req-top">
             <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
             <div class="req-time">${esc(o.time)}</div>
@@ -2694,7 +2780,13 @@ void main(){
   }
 
 
-  function startEtaSelection(id){
+  // «Принять» без машины открывает экран машины; после сохранения водитель
+  // сразу возвращается к этому заказу и выбирает цену и время.
+  async function startEtaSelection(id){
+    if(!myCar){
+      await fetchMyCar();
+      if(!myCar){ openCar(id); return; }
+    }
     etaSelectingId = id;
     renderDriver();
   }
@@ -2718,6 +2810,11 @@ void main(){
       p_price: proposedPrice,
       p_eta: etaMinutes
     });
+    if(error && /car required/.test(error.message)){
+      myCar = null;
+      openCar(id);
+      return;
+    }
     if(error) showBanner('Ошибка: ' + error.message, 'error');
     else {
       // Отклик снимает режим «Занят» — так решено сервером (submit_offer),
@@ -2821,6 +2918,7 @@ void main(){
     document.getElementById('view-passenger').hidden = true;
     document.getElementById('view-driver').hidden = true;
     document.getElementById('view-help').hidden = true;
+    document.getElementById('view-car').hidden = true;
     document.getElementById('view-history').hidden = false;
     reportPresence(true);
     renderHistory(true);
@@ -2901,6 +2999,7 @@ void main(){
           ${who ? ' · ' + who : ''}
           ${myRating ? ' · ваша оценка ' + STAR_INLINE + myRating : ''}
         </div>
+        ${!isDriver && o.car ? `<div class="order-meta">${esc(carTitle(o.car))}, ${esc(formatPlate(o.car.plate))}</div>` : ''}
         ${isWithinCallGrace(o) ? `
           <button class="btn-call" onclick="callCounterpart(${o.id})">
             Забыли что-то? Позвонить ${isDriver ? 'пассажиру' : 'водителю'}
@@ -2966,7 +3065,7 @@ void main(){
   // Вопросы свои для каждой роли, как и история. Тексты — просто список ниже:
   // поправить ответ = поменять строку. В ответах можно <p> и <b>.
   // Адрес поддержки пока почта; когда появится постоянный канал — меняется здесь.
-  const APP_VERSION = '0.5';
+  const APP_VERSION = '0.6';
   const SUPPORT_EMAIL = 'elva.service.support@gmail.com';
 
   const HELP_PUSH_ANSWER = `
@@ -2985,7 +3084,7 @@ void main(){
         <p>На главном экране укажите, откуда и куда ехать, и сколько готовы заплатить. В комментарии можно написать подъезд, про багаж или детское кресло.</p>
         <p>Нажмите <b>«Заказать такси»</b> — заказ увидят водители и начнут присылать предложения.</p>` },
       { q: 'Как выбрать водителя?', a: `
-        <p>Предложения появляются под заказом: цена, через сколько минут водитель подъедет и его рейтинг. Сверху — самые дешёвые.</p>
+        <p>Предложения появляются под заказом: цена, через сколько минут водитель подъедет, его рейтинг и машина — марка, цвет и госномер. Сверху — самые дешёвые.</p>
         <p>Нажмите <b>«Выбрать»</b> у подходящего. Каждое предложение действует 3 минуты.</p>` },
       { q: 'Как отменить заказ?', a: `
         <p>Пока вы не выбрали водителя — кнопка <b>«Отменить заказ»</b> под заказом.</p>
@@ -2996,7 +3095,7 @@ void main(){
       { q: 'Как позвонить водителю?', a: `
         <p>Когда водитель выбран, под заказом появляется кнопка <b>«Позвонить водителю»</b>. Она есть, пока водитель едет к вам и ждёт на месте.</p>` },
       { q: 'Водитель приехал — что дальше?', a: `
-        <p>Придёт уведомление, а на экране начнётся отсчёт: бесплатное ожидание — 3 минуты.</p>
+        <p>Придёт уведомление, а на экране начнётся отсчёт: бесплатное ожидание — 3 минуты. Машину легко найти: её марка, цвет и крупный госномер — на экране заказа.</p>
         <p>Нажмите <b>«Выхожу»</b>, чтобы водитель знал, что вы идёте.</p>` },
       { q: 'Забыл вещь в машине', a: `
         <p>В течение часа после поездки откройте в меню <b>«История заказов»</b> — у этой поездки будет кнопка «Забыли что-то? Позвонить водителю».</p>
@@ -3007,8 +3106,11 @@ void main(){
     ],
     driver: [
       { q: 'Как взять заказ?', a: `
+        <p>Сначала добавьте машину: марку, цвет и госномер. Без машины заказы видно, но принять их нельзя. Приложение попросит об этом при первом нажатии «Принять».</p>
         <p>Свободные заказы видны в <b>«Ленте заказов»</b>. Нажмите «Принять», оставьте цену пассажира или назовите свою, выберите время подачи и нажмите <b>«ОК»</b>.</p>
         <p>Пассажир увидит ваше предложение рядом с предложениями других водителей и выберет.</p>` },
+      { q: 'Как изменить машину?', a: `
+        <p>В меню — <b>«Моя машина»</b>. Новые данные увидят пассажиры в следующих предложениях. Уже отправленные предложения и идущая поездка остаются с прежней машиной.</p>` },
       { q: 'Что значит «Свободен» и «Занят»?', a: `
         <p>Переключатель отвечает только за уведомления о новых заказах, когда приложение свёрнуто. <b>«Свободен»</b> — уведомления приходят, <b>«Занят»</b> — нет.</p>
         <p>Ленту видно и откликаться можно в любом режиме. Когда вы отправляете цену, переключатель сам встаёт на «Свободен».</p>` },
@@ -3040,6 +3142,7 @@ void main(){
     document.getElementById('view-passenger').hidden = true;
     document.getElementById('view-driver').hidden = true;
     document.getElementById('view-history').hidden = true;
+    document.getElementById('view-car').hidden = true;
     renderHelp();
     document.getElementById('view-help').hidden = false;
     reportPresence(true);
@@ -3114,6 +3217,265 @@ void main(){
     }
   }
 
+  // ---------- машина водителя ----------
+  // Без машины водитель видит ленту, но принять заказ не может (это
+  // проверяет и база, в submit_offer). Машина копируется в предложение,
+  // а после выбора — в заказ: пассажир видит её в предложении и крупно,
+  // пока ждёт. Форма — отдельный экран, как «Помощь»: окно снизу на iPhone
+  // закрывает клавиатура.
+  let myCar = null;            // { model, color, plate } или null
+  let myCarLoaded = false;     // знаем ли уже ответ базы (до этого плашку не показываем)
+  let carReturnOrderId = null; // заказ, к которому вернуться после сохранения
+  let carDraft = null;         // то, что сейчас в форме
+
+  const CAR_BRANDS = ['Toyota', 'Lada', 'Honda', 'Nissan', 'Mitsubishi', 'Hyundai', 'Kia', 'Subaru', 'Mazda', 'УАЗ'];
+  // Цвет согласован со словом «машина»: «Toyota Corolla, белая».
+  const CAR_COLORS = [
+    ['белая', '#f4f4f4'], ['чёрная', '#141414'], ['серая', '#8a8f98'],
+    ['серебристая', 'linear-gradient(135deg, #f1f3f5, #9aa0a8)'],
+    ['синяя', '#2d55c8'], ['голубая', '#7cc4ef'], ['красная', '#d33a3a'],
+    ['бордовая', '#7a1f2b'], ['зелёная', '#2f8f4e'], ['бежевая', '#d8c6a0'],
+    ['коричневая', '#6b4a2f'], ['жёлтая', '#f2c94c'], ['оранжевая', '#f08a2c'],
+    ['фиолетовая', '#7a4bc4']
+  ];
+
+  // Номер: буква, три цифры, две буквы, регион (2–3 цифры). Только те буквы,
+  // что есть и в русском, и в латинском алфавите. Латинские двойники
+  // превращаем в русские — на iPhone их легко набрать по ошибке.
+  const PLATE_LAT = 'ABEKMHOPCTYX';
+  const PLATE_CYR = 'АВЕКМНОРСТУХ';
+  const PLATE_RE = /^([АВЕКМНОРСТУХ])(\d{3})([АВЕКМНОРСТУХ]{2})(\d{2,3})$/;
+
+  function normalizePlate(s){
+    return String(s || '').toUpperCase().replace(/[\s\-]/g, '').split('')
+      .map(ch => { const i = PLATE_LAT.indexOf(ch); return i >= 0 ? PLATE_CYR[i] : ch; })
+      .join('');
+  }
+
+  // «А123ВС14» -> «А123ВС 14»: так номер привычно читать в тексте.
+  function formatPlate(p){
+    const m = PLATE_RE.exec(p || '');
+    return m ? m[1] + m[2] + m[3] + ' ' + m[4] : (p || '');
+  }
+
+  // Для значений внутри атрибутов (value="…"): esc не трогает кавычки.
+  function escAttr(str){ return esc(str).replace(/"/g, '&quot;'); }
+
+  function carTitle(car){
+    return car.color ? car.model + ', ' + car.color : car.model;
+  }
+
+  // Номерной знак. Для сохранённого номера — как есть; для ввода (preview)
+  // недостающие знаки показываем бледными: сразу видно, что осталось набрать.
+  function plateHtml(plate, size, preview){
+    let a, b, c, d;
+    const m = PLATE_RE.exec(plate || '');
+    if(m && !preview){
+      [a, b, c, d] = [m[1], m[2], m[3], m[4]];
+      a = esc(a); b = esc(b); c = esc(c); d = esc(d);
+    } else {
+      const t = String(plate || '');
+      const tpl = 'А000АА';
+      const slot = i => t[i] ? esc(t[i]) : `<span class="ph">${tpl[i]}</span>`;
+      a = slot(0);
+      b = slot(1) + slot(2) + slot(3);
+      c = slot(4) + slot(5);
+      d = t.length > 6 ? esc(t.slice(6, 9)) : '<span class="ph">14</span>';
+    }
+    return `<span class="plate plate-${size}" role="img" aria-label="Госномер ${escAttr(formatPlate(plate))}">
+      <span class="plate-main"><span class="pl">${a}</span><span>${b}</span><span class="pl">${c}</span></span>
+      <span class="plate-reg"><span class="pr">${d}</span><span class="plate-rus">RUS<span class="plate-flag"></span></span></span>
+    </span>`;
+  }
+
+  async function fetchMyCar(){
+    if(!sb || !myProfile) return;
+    const { data, error } = await sb.rpc('my_driver_car');
+    if(error){ console.error('my_driver_car:', error.message); return; }
+    const row = Array.isArray(data) ? data[0] : data;
+    myCar = row ? { model: row.car_model, color: row.car_color, plate: row.car_plate } : null;
+    myCarLoaded = true;
+    renderDriver();
+  }
+
+  function driverNeedsCar(){ return myCarLoaded && !myCar; }
+
+  function carNeededCard(){
+    return `
+      <div class="order-card">
+        <div class="support-title">Чтобы принять заказ, добавьте машину</div>
+        <p class="support-text">Марку, цвет и госномер пассажир увидит в вашем предложении — так ему проще найти вас.</p>
+        <button class="btn-primary" onclick="openCar(null)">Добавить машину</button>
+      </div>`;
+  }
+
+  function openCarFromMenu(){
+    closeMenu();
+    openCar(null);
+  }
+
+  function openCar(returnOrderId){
+    carReturnOrderId = returnOrderId;
+    etaSelectingId = null;
+    const cur = myCar || { model: '', color: '', plate: '' };
+    const known = CAR_COLORS.some(c => c[0] === cur.color);
+    carDraft = { model: cur.model, color: cur.color, other: !!cur.color && !known, plate: cur.plate };
+    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help']){
+      document.getElementById(id).hidden = true;
+    }
+    renderCar();
+    document.getElementById('view-car').hidden = false;
+    reportPresence(true);
+    const scroller = document.querySelector('main');
+    if(scroller) scroller.scrollTop = 0;
+  }
+
+  function closeCar(){
+    document.getElementById('view-car').hidden = true;
+    carReturnOrderId = null;
+    switchView(currentView);
+  }
+
+  function renderCar(){
+    const d = carDraft;
+    document.getElementById('view-car').innerHTML = `
+      <div class="history-head">
+        <button class="history-back" onclick="closeCar()">← Назад</button>
+        <h1 class="view-title">${myCar ? 'Моя машина' : 'Добавьте машину'}</h1>
+      </div>
+      <p class="history-summary">Пассажир увидит машину в вашем предложении, а когда выберет вас — крупно на экране.</p>
+
+      <div class="order-card">
+        <div class="car-preview" id="car-preview">${plateHtml(d.plate, 'lg', true)}</div>
+
+        <div class="field">
+          <label for="car-model">Марка и модель</label>
+          <input id="car-model" type="text" maxlength="40" placeholder="Toyota Corolla"
+                 autocomplete="off" autocorrect="off" spellcheck="false"
+                 value="${escAttr(d.model)}" oninput="carDraft.model = this.value">
+          <div class="chip-row">
+            ${CAR_BRANDS.map(b => `<button type="button" class="brand-chip" onclick="pickCarBrand('${b}')">${b}</button>`).join('')}
+          </div>
+        </div>
+
+        <div class="field">
+          <label>Цвет</label>
+          <div class="chip-row" id="car-colors">
+            ${CAR_COLORS.map(([name, bg]) => `
+              <button type="button" class="color-chip${!d.other && d.color === name ? ' active' : ''}"
+                      data-color="${name}" onclick="pickCarColor('${name}')">
+                <span class="swatch" style="background:${bg}"></span>${name}
+              </button>`).join('')}
+            <button type="button" class="color-chip${d.other ? ' active' : ''}" data-color="" onclick="pickCarColor(null)">
+              <span class="swatch swatch-other"></span>другой
+            </button>
+          </div>
+          <input id="car-color-other" type="text" maxlength="24" placeholder="Например, вишнёвая"
+                 autocomplete="off" ${d.other ? '' : 'hidden'}
+                 value="${d.other ? escAttr(d.color) : ''}" oninput="carDraft.color = this.value">
+        </div>
+
+        <div class="field">
+          <label for="car-plate">Госномер</label>
+          <input id="car-plate" type="text" maxlength="12" placeholder="А123ВС 14"
+                 autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"
+                 value="${escAttr(formatPlate(d.plate))}" oninput="onCarPlateInput(this)">
+          <div class="field-hint">Буква, три цифры, две буквы и регион.</div>
+        </div>
+
+        <div class="form-error" id="car-error" hidden></div>
+        <button class="btn-primary" id="car-save" onclick="saveCar()">${carReturnOrderId ? 'Сохранить и принять заказ' : 'Сохранить'}</button>
+      </div>
+    `;
+  }
+
+  function pickCarBrand(brand){
+    const input = document.getElementById('car-model');
+    const rest = input.value.trim().split(/\s+/).slice(1).join(' ');
+    input.value = brand + ' ' + rest;
+    carDraft.model = input.value;
+    input.focus();
+    const end = input.value.length;
+    try { input.setSelectionRange(end, end); } catch(e){}
+  }
+
+  function pickCarColor(name){
+    const other = document.getElementById('car-color-other');
+    if(name === null){
+      carDraft.other = true;
+      carDraft.color = other.value;
+      other.hidden = false;
+      other.focus();
+    } else {
+      carDraft.other = false;
+      carDraft.color = name;
+      other.hidden = true;
+    }
+    document.querySelectorAll('#car-colors .color-chip').forEach(btn => {
+      btn.classList.toggle('active', carDraft.other ? btn.dataset.color === '' : btn.dataset.color === name);
+    });
+  }
+
+  function onCarPlateInput(el){
+    const norm = normalizePlate(el.value).slice(0, 9);
+    carDraft.plate = norm;
+    document.getElementById('car-preview').innerHTML = plateHtml(norm, 'lg', true);
+  }
+
+  function carError(text){
+    const el = document.getElementById('car-error');
+    el.textContent = text;
+    el.hidden = !text;
+  }
+
+  async function saveCar(){
+    const model = (carDraft.model || '').trim().replace(/\s+/g, ' ');
+    const color = (carDraft.color || '').trim().toLowerCase();
+    const plate = normalizePlate(carDraft.plate);
+    if(model.length < 2){ carError('Укажите марку и модель, например Toyota Corolla.'); return; }
+    if(color.length < 2){ carError('Выберите цвет машины.'); return; }
+    if(!PLATE_RE.test(plate)){ carError('Проверьте госномер: буква, три цифры, две буквы и регион — например, А123ВС 14.'); return; }
+    carError('');
+
+    const btn = document.getElementById('car-save');
+    btn.disabled = true;
+    const wasFirst = !myCar;
+    const { data, error } = await sb.rpc('save_driver_car', { p_model: model, p_color: color, p_plate: plate });
+    btn.disabled = false;
+    if(error){
+      const msg = error.message || '';
+      carError(/bad plate/.test(msg) ? 'Проверьте госномер: буква, три цифры, две буквы и регион — например, А123ВС 14.'
+        : /bad model/.test(msg) ? 'Укажите марку и модель, например Toyota Corolla.'
+        : /bad color/.test(msg) ? 'Выберите цвет машины.'
+        : 'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.');
+      return;
+    }
+    const row = Array.isArray(data) ? data[0] : data;
+    myCar = row ? { model: row.car_model, color: row.car_color, plate: row.car_plate } : { model, color, plate };
+    myCarLoaded = true;
+
+    // Первая машина включает уведомления о новых заказах (это делает база);
+    // на экране показываем то же самое сразу.
+    if(wasFirst && !driverBanned()){
+      const prev = driverProfiles[driverId];
+      driverProfiles[driverId] = Object.assign({ sum: 0, count: 0 }, prev, { available: true });
+    }
+
+    const orderId = carReturnOrderId;
+    closeCar();
+    const order = orderId && orders.find(o => o.id === orderId && o.status === 'searching');
+    if(order){
+      etaSelectingId = orderId;
+      renderDriver();
+      const card = document.getElementById('req-' + orderId);
+      if(card) card.scrollIntoView({ block: 'center' });
+      showToast('Машина сохранена');
+    } else {
+      if(orderId) showToast('Машина сохранена. Этот заказ уже забрали', 3000);
+      else showToast(wasFirst ? 'Машина добавлена. Уведомления о новых заказах включены' : 'Машина сохранена', 3000);
+    }
+  }
+
   // ---------- боковое меню и смена роли ----------
   // Меню сначала показываем (оно стоит за краем экрана), и только следующим
   // кадром включаем класс open — иначе браузер не увидит начального положения
@@ -3162,6 +3524,9 @@ void main(){
       : 'Пока нет оценок';
     document.getElementById('menu-role-note').textContent = isDriver ? 'Вы водитель' : 'Вы пассажир';
     document.getElementById('menu-role-switch').textContent = isDriver ? 'Стать пассажиром' : 'Стать водителем';
+    const carItem = document.getElementById('menu-car');
+    carItem.hidden = !isDriver;
+    carItem.textContent = myCar ? 'Моя машина' : 'Добавить машину';
   }
 
   function pluralTrips(n){
@@ -3189,10 +3554,9 @@ void main(){
     setTimeout(() => hideBanner(true), 3000);
   }
 
-  // Строка водителя в базе. Пока отдельной регистрации водителя нет (номер
-  // машины, цвет и прочее — следующий заход), водителем считается тот, кто
-  // хоть раз открыл этот раздел: по строке в driver_profiles рассылка узнаёт,
-  // кому вообще предлагать новые заказы. Делается один раз за запуск.
+  // Строка водителя в базе заводится при первом входе в роль водителя.
+  // Уведомления о новых заказах при этом не включаются: база включает их
+  // только тем, у кого есть машина (22-й SQL). Делается один раз за запуск.
   let driverProfileEnsured = false;
   function ensureDriverProfile(){
     if(driverProfileEnsured || !sb) return;
@@ -3208,6 +3572,7 @@ void main(){
     if(view === 'driver') ensureDriverProfile();
     document.getElementById('view-history').hidden = true;
     document.getElementById('view-help').hidden = true;
+    document.getElementById('view-car').hidden = true;
     document.getElementById('view-passenger').hidden = view !== 'passenger';
     document.getElementById('view-driver').hidden = view !== 'driver';
     applyBan();
