@@ -830,20 +830,57 @@
   .plate-sm{ font-size: 14px; }
   .plate-lg{ font-size: 34px; }
 
-  .offer-card .order-meta{ margin-bottom: 10px; }
-  .offer-card .req-actions{ margin-top: 14px; }
-  .offer-car{
-    display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
-    font-size: 13.5px; color: var(--text); margin-bottom: 10px;
-  }
+  /* ---------- Предложение водителя: крупно, для слабого зрения ----------
+     Номера здесь нет: пассажир видит его, только когда выберет водителя. */
+  .offer-big{ padding: 18px; }
+  .ob-car{ font-size: 23px; font-weight: 800; line-height: 1.25; color: var(--text); }
+  .ob-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin: 10px 0 8px; }
+  .ob-price{ font-size: 32px; font-weight: 800; color: var(--amber); line-height: 1; white-space: nowrap; }
+  .ob-eta{ font-size: 20px; font-weight: 700; color: var(--text); white-space: nowrap; }
+  .ob-driver{ display: flex; align-items: center; gap: 10px; font-size: 16px; color: var(--muted); margin-bottom: 16px; }
+  .ob-btn{ width: 100%; flex: none; padding: 16px; font-size: 18px; border-radius: 12px; }
 
-  .car-hero{
-    margin-top: 14px; padding: 18px 12px 20px;
-    border-radius: 14px; background: var(--surface);
-    border: 1px solid var(--line);
-    text-align: center;
+  /* ---------- Фото профиля ----------
+     Круг под фото. Пока фото нет — первая буква имени. Картинка лежит
+     поверх буквы: если не загрузится, её убирают и видна буква. */
+  .avatar{
+    position: relative; flex: none;
+    width: var(--av, 36px); height: var(--av, 36px); border-radius: 50%;
+    overflow: hidden; background: rgba(143,224,232,0.16); color: var(--ice);
+    display: inline-flex; align-items: center; justify-content: center;
+    font-weight: 800; font-size: calc(var(--av, 36px) * 0.45); line-height: 1;
   }
-  .car-hero-model{ font-weight: 700; font-size: 16px; margin-bottom: 14px; }
+  .avatar img{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+
+  /* ---------- Экран ожидания: номер первым ---------- */
+  .car-top-plate{ display: flex; justify-content: center; margin: 2px 0 16px; }
+  .car-top-plate .plate{ font-size: min(42px, 10.4vw); }
+  .car-top-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
+  .car-top-name{ font-size: 21px; font-weight: 800; line-height: 1.25; }
+  .car-top-when{ font-size: 21px; font-weight: 800; color: var(--amber); white-space: nowrap; font-variant-numeric: tabular-nums; }
+  .car-top-when.here{ color: var(--success); }
+  .car-top-driver{ display: flex; align-items: center; gap: 10px; margin-top: 10px; font-size: 15px; color: var(--muted); }
+  .route-bottom{ margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+  .route-bottom .order-meta{ margin-bottom: 0; }
+
+  /* ---------- Нажатие кнопок ----------
+     На iPhone нажатие по умолчанию никак не видно, а системную подсветку мы
+     выключили. Поэтому любая кнопка при касании чуть утапливается и темнеет.
+     Кнопка, которая ждёт ответа сервера, крутит значок и второй раз не жмётся. */
+  button, .callback-number{ transition: transform 0.1s ease, filter 0.12s ease, background-color 0.12s ease, opacity 0.12s ease; }
+  button:not(:disabled):active, .callback-number:active{ transform: scale(0.96); filter: brightness(0.85); }
+  .btn-ghost:not(:disabled):active, .menu-item:active{ background-color: rgba(237,239,245,0.08); }
+  button.is-busy{ pointer-events: none; opacity: 0.85; }
+  button.is-busy::after{
+    content: ''; display: inline-block; flex: none;
+    width: 1em; height: 1em; margin-left: 0.55em; vertical-align: -0.16em;
+    border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+  }
+  @media (prefers-reduced-motion: reduce){
+    button:not(:disabled):active, .callback-number:active{ transform: none; }
+    button.is-busy::after{ animation-duration: 1.6s; }
+  }
 
   #view-car:not([hidden]){ display: flex; flex-direction: column; gap: 14px; }
   #view-car .history-summary{ margin: -6px 0 0; }
@@ -1383,9 +1420,10 @@ void main(){
   }
 
   // Машина из строки заказа или предложения. У старых записей её нет — null.
+  // В предложении номера нет (он появляется только в заказе после выбора).
   function rowToCar(row){
-    if(!row || !row.car_plate) return null;
-    return { model: row.car_model || '', color: row.car_color || '', plate: row.car_plate };
+    if(!row || !row.car_model) return null;
+    return { model: row.car_model || '', color: row.car_color || '', plate: row.car_plate || '' };
   }
 
   async function fetchOrders(){
@@ -1447,7 +1485,9 @@ void main(){
       ]);
       if(!drv.error){
         driverProfiles = {};
-        drv.data.forEach(r => { driverProfiles[r.driver_id] = { sum: r.rating_sum, count: r.rating_count, available: r.is_available !== false }; });
+        // avatar: фото водителя. Пока его нигде нет — появится вместе с
+        // загрузкой фото, и тогда само встанет в предложения и экран ожидания.
+        drv.data.forEach(r => { driverProfiles[r.driver_id] = { sum: r.rating_sum, count: r.rating_count, available: r.is_available !== false, avatar: r.avatar_url || null }; });
       }
       if(!pax.error){
         passengerProfiles = {};
@@ -2171,13 +2211,17 @@ void main(){
     return `
       <div class="order-list offers-list">
         ${list.map(of => `
-          <div class="req-card offer-card">
-            <div class="order-meta">${esc(of.driverName)} ${ratingBadge(driverProfiles[of.driverId])}</div>
-            ${of.car ? `<div class="offer-car"><span>${esc(carTitle(of.car))}</span>${plateHtml(of.car.plate, 'sm')}</div>` : ''}
-            <div class="order-meta"><span class="order-price">${esc(of.price)} ₽</span> · подача через ${esc(of.eta)} мин</div>
-            <div class="req-actions">
-              <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
+          <div class="req-card offer-card offer-big">
+            ${of.car ? `<div class="ob-car">${esc(carTitle(of.car))}</div>` : ''}
+            <div class="ob-row">
+              <span class="ob-price">${esc(of.price)} ₽</span>
+              <span class="ob-eta">через ${esc(of.eta)} мин</span>
             </div>
+            <div class="ob-driver">
+              ${avatarHtml(of.driverName, driverAvatar(of.driverId), 32)}
+              <span>${esc(of.driverName)} ${ratingBadge(driverProfiles[of.driverId])}</span>
+            </div>
+            <button class="btn-accept ob-btn" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
           </div>
         `).join('')}
       </div>
@@ -2300,6 +2344,15 @@ void main(){
     dismissCancelNotice(id);
   }
 
+  // Справа от машины: сколько осталось ехать водителю, «скоро» или «на месте».
+  function carWhenHtml(order){
+    if(order.status === 'arrived') return '<span class="car-top-when here">на месте</span>';
+    const c = formatEtaCountdown(order);
+    if(!c) return `<span class="car-top-when">${esc(order.eta)} мин</span>`;
+    if(c.expired) return '<span class="car-top-when">скоро</span>';
+    return `<span class="car-top-when" data-tick="eta" data-order-id="${order.id}">${c.text}</span>`;
+  }
+
   function renderPassenger(){
     const el = document.getElementById('view-passenger');
     renderedWaitPhase.passenger = {};
@@ -2367,19 +2420,30 @@ void main(){
     }
 
     const order = active;
+    // Пока водитель едет и ждёт, главное — найти машину: номер во всю ширину
+    // сверху, маршрут уезжает вниз. У старых заказов без машины — как раньше.
+    const carFirst = (order.status === 'accepted' || order.status === 'arrived') && order.car && order.car.plate;
+    const routeHtml = `
+        <div class="order-route">${esc(order.from)}<span class="arrow">→</span>${esc(order.to)}</div>
+        <div class="order-meta">Заказ №${order.id} · ${esc(order.time)} · <span class="order-price">${esc(order.price)} ₽</span></div>`;
 
     setHtml(el, `
       <h1 class="view-title order-title">${passengerHeadline(order)}</h1>
       <div class="order-card${order.status === 'searching' ? ' searching' : ''}">
-        <div class="order-route">${esc(order.from)}<span class="arrow">→</span>${esc(order.to)}</div>
-        <div class="order-meta">Заказ №${order.id} · ${esc(order.time)} · <span class="order-price">${esc(order.price)} ₽</span></div>
-        ${order.driverName ? `<div class="order-meta">${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</div>` : ''}
-        ${(order.status === 'accepted' || order.status === 'arrived') && order.car ? `
-          <div class="car-hero">
-            <div class="car-hero-model">${esc(carTitle(order.car))}</div>
-            ${plateHtml(order.car.plate, 'lg')}
+        ${carFirst ? `
+          <div class="car-top-plate">${plateHtml(order.car.plate, 'lg')}</div>
+          <div class="car-top-row">
+            <span class="car-top-name">${esc(carTitle(order.car))}</span>
+            ${carWhenHtml(order)}
           </div>
-        ` : ''}
+          <div class="car-top-driver">
+            ${avatarHtml(order.driverName, driverAvatar(order.driverId), 36)}
+            <span>${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</span>
+          </div>
+        ` : `
+          ${routeHtml}
+          ${order.driverName ? `<div class="order-meta">${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</div>` : ''}
+        `}
         ${order.status === 'searching' ? passengerOffersList(order) : ''}
         ${order.status === 'accepted' || order.status === 'arrived' ? `
           <button class="btn-call" onclick="callCounterpart(${order.id})">Позвонить водителю</button>
@@ -2399,6 +2463,7 @@ void main(){
             <button class="btn-ghost" onclick="askCancelTrip(${order.id}, 'passenger')">Отменить поездку</button>
           </div>
         ` : ''}
+        ${carFirst ? `<div class="route-bottom">${routeHtml}</div>` : ''}
         ${order.status === 'done' ? `
           <div class="rating-block">
             <div class="rating-label">${order.rating ? 'Спасибо за оценку!' : 'Как прошла поездка?'}</div>
@@ -2414,7 +2479,7 @@ void main(){
   }
 
   function exitPassenger(id){
-    sb.rpc('exit_passenger', { p_order_id: id })
+    return sb.rpc('exit_passenger', { p_order_id: id })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
   }
 
@@ -2446,12 +2511,13 @@ void main(){
   function confirmRatePassenger(id){
     const value = ratingDrafts[id];
     if(!value) return;
-    ratePassenger(id, value);
+    const done = ratePassenger(id, value);
     delete ratingDrafts[id];
+    return done;
   }
 
   function ratePassenger(id, value){
-    sb.rpc('rate_passenger', { p_order_id: id, p_value: value })
+    return sb.rpc('rate_passenger', { p_order_id: id, p_value: value })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
   }
 
@@ -2479,7 +2545,7 @@ void main(){
   }
 
   function cancelOrder(id){
-    sb.rpc('cancel_order', { p_order_id: id })
+    return sb.rpc('cancel_order', { p_order_id: id })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
   }
 
@@ -2828,7 +2894,7 @@ void main(){
   }
 
   function withdrawOffer(orderId){
-    sb.rpc('withdraw_offer', { p_order_id: orderId })
+    return sb.rpc('withdraw_offer', { p_order_id: orderId })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
   }
 
@@ -2882,17 +2948,17 @@ void main(){
   }
 
   function arriveOrder(id){
-    sb.rpc('arrive_order', { p_order_id: id })
+    return sb.rpc('arrive_order', { p_order_id: id })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
   }
 
   function startTrip(id){
-    sb.rpc('start_trip', { p_order_id: id })
+    return sb.rpc('start_trip', { p_order_id: id })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
   }
 
   function completeOrder(id){
-    sb.rpc('complete_order', { p_order_id: id })
+    return sb.rpc('complete_order', { p_order_id: id })
       .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
   }
 
@@ -2999,7 +3065,7 @@ void main(){
           ${who ? ' · ' + who : ''}
           ${myRating ? ' · ваша оценка ' + STAR_INLINE + myRating : ''}
         </div>
-        ${!isDriver && o.car ? `<div class="order-meta">${esc(carTitle(o.car))}, ${esc(formatPlate(o.car.plate))}</div>` : ''}
+        ${!isDriver && o.car ? `<div class="order-meta">${esc(carTitle(o.car))}${o.car.plate ? ', ' + esc(formatPlate(o.car.plate)) : ''}</div>` : ''}
         ${isWithinCallGrace(o) ? `
           <button class="btn-call" onclick="callCounterpart(${o.id})">
             Забыли что-то? Позвонить ${isDriver ? 'пассажиру' : 'водителю'}
@@ -3065,7 +3131,7 @@ void main(){
   // Вопросы свои для каждой роли, как и история. Тексты — просто список ниже:
   // поправить ответ = поменять строку. В ответах можно <p> и <b>.
   // Адрес поддержки пока почта; когда появится постоянный канал — меняется здесь.
-  const APP_VERSION = '0.6';
+  const APP_VERSION = '0.7';
   const SUPPORT_EMAIL = 'elva.service.support@gmail.com';
 
   const HELP_PUSH_ANSWER = `
@@ -3084,7 +3150,7 @@ void main(){
         <p>На главном экране укажите, откуда и куда ехать, и сколько готовы заплатить. В комментарии можно написать подъезд, про багаж или детское кресло.</p>
         <p>Нажмите <b>«Заказать такси»</b> — заказ увидят водители и начнут присылать предложения.</p>` },
       { q: 'Как выбрать водителя?', a: `
-        <p>Предложения появляются под заказом: цена, через сколько минут водитель подъедет, его рейтинг и машина — марка, цвет и госномер. Сверху — самые дешёвые.</p>
+        <p>Предложения появляются под заказом: цена, через сколько минут водитель подъедет, его рейтинг и машина — марка и цвет. Госномер появится, когда выберете водителя. Сверху — самые дешёвые.</p>
         <p>Нажмите <b>«Выбрать»</b> у подходящего. Каждое предложение действует 3 минуты.</p>` },
       { q: 'Как отменить заказ?', a: `
         <p>Пока вы не выбрали водителя — кнопка <b>«Отменить заказ»</b> под заказом.</p>
@@ -3304,7 +3370,7 @@ void main(){
     return `
       <div class="order-card">
         <div class="support-title">Чтобы принять заказ, добавьте машину</div>
-        <p class="support-text">Марку, цвет и госномер пассажир увидит в вашем предложении — так ему проще найти вас.</p>
+        <p class="support-text">Марку и цвет пассажир увидит в вашем предложении, а госномер — когда выберет вас.</p>
         <button class="btn-primary" onclick="openCar(null)">Добавить машину</button>
       </div>`;
   }
@@ -3343,7 +3409,7 @@ void main(){
         <button class="history-back" onclick="closeCar()">← Назад</button>
         <h1 class="view-title">${myCar ? 'Моя машина' : 'Добавьте машину'}</h1>
       </div>
-      <p class="history-summary">Пассажир увидит машину в вашем предложении, а когда выберет вас — крупно на экране.</p>
+      <p class="history-summary">Марку и цвет пассажир увидит в вашем предложении, а госномер — крупно на экране, когда выберет вас.</p>
 
       <div class="order-card">
         <div class="car-preview" id="car-preview">${plateHtml(d.plate, 'lg', true)}</div>
@@ -3475,6 +3541,66 @@ void main(){
       else showToast(wasFirst ? 'Машина добавлена. Уведомления о новых заказах включены' : 'Машина сохранена', 3000);
     }
   }
+
+  // ---------- фото профиля ----------
+  // Круг с фото; пока фото нет — с первой буквой имени. Берём только https-
+  // ссылки. Если картинка не загрузилась, убираем её — остаётся буква.
+  function avatarHtml(name, url, size){
+    const letter = (String(name || '').trim()[0] || '?').toUpperCase();
+    const style = size ? ` style="--av:${size}px"` : '';
+    const img = url && /^https:\/\//.test(url)
+      ? `<img src="${escAttr(url)}" alt="" loading="lazy" onerror="this.remove()">` : '';
+    return `<span class="avatar" aria-hidden="true"${style}>${esc(letter)}${img}</span>`;
+  }
+
+  function driverAvatar(id){
+    const p = driverProfiles[id];
+    return p ? p.avatar : null;
+  }
+
+  // ---------- нажатия кнопок ----------
+  // Без этого пустого обработчика iPhone не показывает :active (утапливание).
+  document.addEventListener('touchstart', () => {}, { passive: true });
+
+  // Какая кнопка нажата последней. Слушаем в фазе захвата — раньше, чем
+  // сработает onclick самой кнопки.
+  let lastTapButton = null;
+  document.addEventListener('click', e => {
+    lastTapButton = e.target.closest ? e.target.closest('button') : null;
+  }, true);
+
+  // Оборачивает действие, которое ждёт сервер: пока ждём, нажатая кнопка
+  // крутит значок и не нажимается повторно (нет двойных заказов и откликов).
+  function busyAction(fn){
+    return async function(...args){
+      const btn = lastTapButton;
+      lastTapButton = null;
+      if(btn){
+        if(btn.classList.contains('is-busy')) return;
+        btn.classList.add('is-busy');
+        btn.setAttribute('aria-busy', 'true');
+      }
+      try {
+        return await fn.apply(this, args);
+      } finally {
+        if(btn){
+          btn.classList.remove('is-busy');
+          btn.removeAttribute('aria-busy');
+        }
+      }
+    };
+  }
+
+  [
+    'submitOrder', 'cancelOrder', 'acceptOffer', 'exitPassenger', 'confirmRateOrder',
+    'confirmAcceptSelected', 'withdrawOffer', 'arriveOrder', 'startTrip', 'completeOrder',
+    'confirmRatePassenger', 'callCounterpart', 'saveCar',
+    'loginStart', 'loginConfirm', 'loginSaveName', 'loginFallbackStart', 'loginFallbackCheck',
+    'enablePush', 'sendTestPush', 'recheckBan', 'loadMoreHistory'
+  ].forEach(name => {
+    if(typeof window[name] === 'function') window[name] = busyAction(window[name]);
+    else console.warn('busyAction: нет функции', name);
+  });
 
   // ---------- боковое меню и смена роли ----------
   // Меню сначала показываем (оно стоит за краем экрана), и только следующим

@@ -242,6 +242,15 @@
     .chart{ height: 200px; }
   }
   [hidden]{ display: none !important; }
+
+  /* Нажатие видно: кнопка и строка списка при касании утапливаются и темнеют.
+     На iPhone без этого нажатие никак не отображается. */
+  button, .row.click{ transition: transform 0.1s ease, filter 0.12s ease, background-color 0.12s ease; }
+  button:not(:disabled):active{ transform: scale(0.96); filter: brightness(0.85); }
+  .row.click:active{ filter: brightness(1.25); }
+  @media (prefers-reduced-motion: reduce){
+    button:not(:disabled):active{ transform: none; }
+  }
 </style>
 </head>
 <body>
@@ -286,6 +295,8 @@
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
+  // Без этого пустого обработчика iPhone не показывает :active у кнопок.
+  document.addEventListener('touchstart', () => {}, { passive: true });
   // ---------- настройки ----------
   // Те же адрес и ключ, что в index.html (ключ публичный, данные защищает база).
   const SUPABASE_URL = 'https://uoqaaemktxcumcsdmhpj.supabase.co';
