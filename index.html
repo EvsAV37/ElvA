@@ -1125,7 +1125,7 @@ void main(){
       </button>
       <div class="logo">ElvA</div>
     </div>
-    <div class="tagline">Такси по Олёкминску</div>
+    <div class="tagline" data-cfg="tagline">Такси по Олёкминску</div>
   </div>
 
   <!-- Боковое меню. Роль переехала сюда: рейтинг у водителя и пассажира —
@@ -1201,17 +1201,31 @@ void main(){
 
 <!-- Библиотека Supabase. Раньше стояла в <head> и держала страницу пустой,
      пока скачивалась; здесь она грузится уже после того, как заставка на экране. -->
+<!-- Настройки (сервер, город, почта поддержки…) — в отдельном файле elva-config.js. -->
+<script src="elva-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
-  // ---------- Supabase config ----------
-  // Вставьте сюда свои значения из Settings → API вашего проекта Supabase.
-  const SUPABASE_URL = 'https://uoqaaemktxcumcsdmhpj.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_58ozWUWGOSBIC6A0CUMQjw_ZBkPKXss';
+  // ---------- настройки ----------
+  // Все значения — в elva-config.js. Если файла нет, CFG_MISSING = true:
+  // приложение покажет понятное сообщение, а не упадёт.
+  const CFG_MISSING = !window.ELVA_CONFIG;
+  const CFG = Object.assign({
+    supabaseUrl: '', supabaseAnonKey: '', vapidPublicKey: '',
+    appName: 'Такси', tagline: '', plateRegion: '',
+    supportEmail: '', appVersion: '', copyright: ''
+  }, window.ELVA_CONFIG || {});
+  const SUPABASE_URL = CFG.supabaseUrl;
+  const SUPABASE_ANON_KEY = CFG.supabaseAnonKey;
+  const APP_NAME = CFG.appName;
+
+  // Название и город в разметке: заголовок вкладки и строка под логотипом.
+  document.title = APP_NAME + (CFG.tagline ? ' — ' + CFG.tagline.charAt(0).toLowerCase() + CFG.tagline.slice(1) : '');
+  document.querySelectorAll('[data-cfg]').forEach(el => { el.textContent = CFG[el.dataset.cfg] || ''; });
 
   // Библиотека Supabase грузится с CDN — при плохой связи её может не оказаться.
   // Тогда не падаем целиком, а показываем понятное сообщение.
   const supabaseLoaded = !!(window.supabase && window.supabase.createClient);
-  const isConfigured = supabaseLoaded && !SUPABASE_URL.includes('ВАШ') && !SUPABASE_ANON_KEY.includes('ВАШ');
+  const isConfigured = supabaseLoaded && !!SUPABASE_URL && !!SUPABASE_ANON_KEY;
   const sb = isConfigured ? window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY) : null;
 
   // Safari на iPhone не всегда слушается user-scalable=no, поэтому жест
@@ -1591,12 +1605,16 @@ void main(){
   }
 
   async function routeAfterLaunch(){
+    if(CFG_MISSING){
+      showBanner('Нет файла настроек elva-config.js. Загрузите его рядом с index.html.', 'error');
+      return;
+    }
     if(!supabaseLoaded){
       showBanner('Нет связи с сервером. Проверьте интернет и откройте приложение заново.', 'error');
       return;
     }
     if(!isConfigured){
-      showBanner('Supabase не настроен — вставьте SUPABASE_URL и SUPABASE_ANON_KEY в начале <script>. Пока показан пустой экран без синхронизации.', 'pending');
+      showBanner('В elva-config.js не вписаны адрес или ключ сервера (supabaseUrl, supabaseAnonKey).', 'error');
       renderPassenger();
       renderDriver();
       return;
@@ -1768,7 +1786,7 @@ void main(){
   // Работают только на сайте с https-адресом: из файла, открытого на телефоне,
   // браузер уведомления не разрешит в принципе. На iPhone — только если ElvA
   // добавлено на экран «Домой» и запущено с иконки (ограничение Apple).
-  const VAPID_PUBLIC_KEY = 'BP5msxgPxSDNLtuCD5Ui07eBhoJOnuLQGvml2XeeBOrMHZd1moRdLDn3xcb5-QrE7qQZo_DzPo5z_Z9BMCU-lgI';
+  const VAPID_PUBLIC_KEY = CFG.vapidPublicKey;
   const PUSH_DISMISS_KEY = 'elva_push_card_dismissed';
   const pushSupported = 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window;
   const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent)
@@ -1800,7 +1818,7 @@ void main(){
     if(!dismissed && isIOS && !isStandalone){
       html = `
         <div class="push-title">Уведомления</div>
-        <p class="push-text">На iPhone уведомления работают, только если ElvA добавлено на экран «Домой». Откройте этот сайт в Safari, нажмите «Поделиться» → «На экран Домой» и запускайте приложение с иконки.</p>
+        <p class="push-text">На iPhone уведомления работают, только если ${esc(APP_NAME)} добавлено на экран «Домой». Откройте этот сайт в Safari, нажмите «Поделиться» → «На экран Домой» и запускайте приложение с иконки.</p>
         <div class="push-actions"><button class="btn-call" onclick="dismissPushCard()">Понятно</button></div>`;
     } else if(!dismissed && pushSupported && swReg && Notification.permission === 'default'){
       html = `
@@ -1885,7 +1903,7 @@ void main(){
     try {
       const { error } = await sb.functions.invoke('send-push', { body: { event: 'test' } });
       if(error) throw error;
-      showBanner('Отправлено. Если уведомление не пришло — проверьте Настройки → Уведомления → ElvA', 'notice');
+      showBanner('Отправлено. Если уведомление не пришло — проверьте Настройки → Уведомления → ' + APP_NAME, 'notice');
       setTimeout(() => hideBanner(true), 7000);
     } catch(e){
       console.error('test push:', e);
@@ -2512,7 +2530,7 @@ void main(){
 
   async function submitOrder(){
     if(!isConfigured){
-      alert('Сначала настройте подключение к Supabase (см. баннер сверху).');
+      alert('Нет подключения к серверу — см. сообщение сверху.');
       return;
     }
     const from = document.getElementById('f-from').value.trim();
@@ -3191,19 +3209,19 @@ void main(){
   // ---------- раздел «Помощь» ----------
   // Вопросы свои для каждой роли, как и история. Тексты — просто список ниже:
   // поправить ответ = поменять строку. В ответах можно <p> и <b>.
-  // Адрес поддержки пока почта; когда появится постоянный канал — меняется здесь.
-  const APP_VERSION = '0.9';
-  const SUPPORT_EMAIL = 'elva.service.support@gmail.com';
+  // Почта поддержки, версия и подпись — в elva-config.js.
+  const APP_VERSION = CFG.appVersion;
+  const SUPPORT_EMAIL = CFG.supportEmail;
 
   const HELP_PUSH_ANSWER = `
-    <p><b>На iPhone</b> уведомления работают только в приложении, установленном на экран «Домой» (см. вопрос ниже). Запускайте ElvA с иконки и разрешите уведомления, когда телефон спросит.</p>
+    <p><b>На iPhone</b> уведомления работают только в приложении, установленном на экран «Домой» (см. вопрос ниже). Запускайте ${APP_NAME} с иконки и разрешите уведомления, когда телефон спросит.</p>
     <p>Проверить можно в меню: <b>«Проверить уведомления»</b> — должно прийти пробное сообщение.</p>
-    <p>Если не пришло: проверьте, не включён ли режим «Не беспокоить» или фокусирование, и что уведомления для ElvA разрешены в настройках телефона.</p>`;
+    <p>Если не пришло: проверьте, не включён ли режим «Не беспокоить» или фокусирование, и что уведомления для ${APP_NAME} разрешены в настройках телефона.</p>`;
 
   const HELP_INSTALL_ANSWER = `
-    <p><b>iPhone:</b> откройте сайт ElvA в Safari, нажмите кнопку «Поделиться» (квадрат со стрелкой) и выберите «На экран „Домой“».</p>
+    <p><b>iPhone:</b> откройте сайт ${APP_NAME} в Safari, нажмите кнопку «Поделиться» (квадрат со стрелкой) и выберите «На экран „Домой“».</p>
     <p><b>Android:</b> откройте меню браузера (три точки) и выберите «Добавить на главный экран» или «Установить приложение».</p>
-    <p>Дальше запускайте ElvA с иконки — так оно открывается во весь экран и получает уведомления.</p>`;
+    <p>Дальше запускайте ${APP_NAME} с иконки — так оно открывается во весь экран и получает уведомления.</p>`;
 
   const HELP_FAQ = {
     passenger: [
@@ -3229,7 +3247,7 @@ void main(){
         <p>Если час прошёл, напишите в поддержку: укажите дату и маршрут поездки.</p>` },
       { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
         <p>Пока вы смотрите на свой заказ, уведомления о новых предложениях не приходят: они и так появляются на экране.</p>` },
-      { q: 'Как установить ElvA на экран «Домой»?', a: HELP_INSTALL_ANSWER }
+      { q: `Как установить ${APP_NAME} на экран «Домой»?`, a: HELP_INSTALL_ANSWER }
     ],
     driver: [
       { q: 'Как взять заказ?', a: `
@@ -3259,7 +3277,7 @@ void main(){
       { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
         <p>Проверьте, что переключатель над лентой стоит на <b>«Свободен»</b>.</p>
         <p>Пока лента открыта на экране, уведомления о новых заказах не приходят: заказы и так появляются в ленте.</p>` },
-      { q: 'Как установить ElvA на экран «Домой»?', a: HELP_INSTALL_ANSWER }
+      { q: `Как установить ${APP_NAME} на экран «Домой»?`, a: HELP_INSTALL_ANSWER }
     ]
   };
 
@@ -3312,8 +3330,8 @@ void main(){
       </div>
 
       <div class="help-about">
-        ElvA, версия ${APP_VERSION}<br>
-        © 2026 Евсеев А.В.
+        ${esc(APP_NAME)}, версия ${esc(APP_VERSION)}<br>
+        ${esc(CFG.copyright)}
       </div>
     `;
   }
@@ -3325,12 +3343,12 @@ void main(){
     const lines = [
       '', '', '—',
       'Имя: ' + ((myProfile && myProfile.name) || '—'),
-      'Номер в ElvA: ' + ((myProfile && myProfile.phone) || '—'),
+      'Номер в ' + APP_NAME + ': ' + ((myProfile && myProfile.phone) || '—'),
       'Роль: ' + role,
       'Версия: ' + APP_VERSION
     ];
     window.location.href = 'mailto:' + SUPPORT_EMAIL
-      + '?subject=' + encodeURIComponent('Вопрос по ElvA')
+      + '?subject=' + encodeURIComponent('Вопрос по ' + APP_NAME)
       + '&body=' + encodeURIComponent(lines.join('\n'));
   }
 
@@ -3504,7 +3522,7 @@ void main(){
 
         <div class="field">
           <label for="car-plate">Госномер</label>
-          <input id="car-plate" type="text" maxlength="12" placeholder="А123ВС 14"
+          <input id="car-plate" type="text" maxlength="12" placeholder="А123ВС ${escAttr(CFG.plateRegion)}"
                  autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"
                  value="${escAttr(formatPlate(d.plate))}" oninput="onCarPlateInput(this)">
           <div class="field-hint">Буква, три цифры, две буквы и регион.</div>

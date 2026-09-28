@@ -6,7 +6,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#03070a">
-<title>ElvA · Админ-панель</title>
+<title>Админ-панель</title>
 <link rel="preload" href="elva-manrope.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="elva-unbounded.woff2" as="font" type="font/woff2" crossorigin>
 <style>
@@ -323,7 +323,7 @@
 
   <!-- ===== Вход ===== -->
   <section id="screen-login" hidden>
-    <h1><span class="brand">ElvA</span> · админ</h1>
+    <h1><span class="brand" data-cfg="appName">ElvA</span> · админ</h1>
     <div class="card">
       <label for="l-email">Почта</label>
       <input id="l-email" type="email" autocomplete="username" inputmode="email">
@@ -339,7 +339,7 @@
 
   <!-- ===== Новый пароль по ссылке из письма ===== -->
   <section id="screen-recovery" hidden>
-    <h1><span class="brand">ElvA</span> · новый пароль</h1>
+    <h1><span class="brand" data-cfg="appName">ElvA</span> · новый пароль</h1>
     <div class="card">
       <label for="r-pass">Новый пароль</label>
       <input id="r-pass" type="password" autocomplete="new-password">
@@ -352,7 +352,7 @@
 
   <!-- ===== Панель ===== -->
   <section id="screen-panel" hidden>
-    <h1><span class="brand">ElvA</span> · админ</h1>
+    <h1><span class="brand" data-cfg="appName">ElvA</span> · админ</h1>
     <div class="who" id="who"></div>
     <nav class="tabs" id="tabs"></nav>
     <div id="tab-body"></div>
@@ -361,19 +361,29 @@
 </div>
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<!-- Настройки (адрес сервера, название, город) — общий файл с приложением. -->
+<script src="elva-config.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <script>
   // Без этого пустого обработчика iPhone не показывает :active у кнопок.
   document.addEventListener('touchstart', () => {}, { passive: true });
   // ---------- настройки ----------
-  // Те же адрес и ключ, что в index.html (ключ публичный, данные защищает база).
-  const SUPABASE_URL = 'https://uoqaaemktxcumcsdmhpj.supabase.co';
-  const SUPABASE_ANON_KEY = 'sb_publishable_58ozWUWGOSBIC6A0CUMQjw_ZBkPKXss';
+  // Общий файл с приложением — elva-config.js (адрес сервера, название, город).
+  const CFG = Object.assign({ supabaseUrl: '', supabaseAnonKey: '', appName: 'Такси', cityGenitive: '' },
+                            window.ELVA_CONFIG || {});
+  const CFG_PROBLEM = !window.ELVA_CONFIG ? 'Нет файла настроек elva-config.js. Загрузите его рядом с admin.html.'
+    : !window.supabase ? 'Нет связи с сервером. Проверьте интернет и обновите страницу.'
+    : (!CFG.supabaseUrl || !CFG.supabaseAnonKey) ? 'В elva-config.js не вписаны адрес или ключ сервера.'
+    : '';
+  const SUPABASE_URL = CFG.supabaseUrl;
+  const SUPABASE_ANON_KEY = CFG.supabaseAnonKey;
   const MIN_PASSWORD = 10;
+  document.title = CFG.appName + ' · Админ-панель';
+  document.querySelectorAll('[data-cfg]').forEach(el => { el.textContent = CFG[el.dataset.cfg] || ''; });
 
   // storageKey — свой, не как у приложения: если в одном Safari открыты и
   // приложение, и панель, они не «выкидывают» друг друга.
-  const sb = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  const sb = CFG_PROBLEM ? null : window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
     auth: { storageKey: 'elva-admin-auth', persistSession: true, detectSessionInUrl: true }
   });
 
@@ -413,6 +423,7 @@
   async function doLogin(){
     const email = $('l-email').value.trim();
     const password = $('l-pass').value;
+    if(CFG_PROBLEM){ msg('l-msg', CFG_PROBLEM, 'error'); return; }
     if(!email || !password){ msg('l-msg', 'Введите почту и пароль.', 'error'); return; }
     $('l-btn').disabled = true;
     msg('l-msg', 'Входим…');
@@ -426,6 +437,7 @@
   // Ссылка для сброса пароля придёт на почту и откроет эту же страницу.
   async function doForgot(){
     const email = $('l-email').value.trim();
+    if(CFG_PROBLEM){ msg('l-msg', CFG_PROBLEM, 'error'); return; }
     if(!email){ msg('l-msg', 'Сначала впишите почту — на неё придёт ссылка.', 'error'); return; }
     const redirectTo = location.origin + location.pathname;
     const { error } = await sb.auth.resetPasswordForEmail(email, { redirectTo });
@@ -985,7 +997,7 @@
       ${chart}
       <div class="note">${statsDays === 1 || !data.days || !data.days.length
         ? 'С полуночи'
-        : 'С ' + new Date(data.days[0].day + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })} по времени Олёкминска.</div>`;
+        : 'С ' + new Date(data.days[0].day + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}${CFG.cityGenitive ? ' по времени ' + esc(CFG.cityGenitive) : ''}.</div>`;
   }
 
   // ---------- администраторы ----------
@@ -1140,6 +1152,11 @@
   // ---------- запуск ----------
   // Если открыли по ссылке из письма «сбросить пароль», Supabase сам
   // подхватит её и пришлёт событие PASSWORD_RECOVERY.
+  // Нет настроек или библиотеки — показываем причину на экране входа и дальше не идём.
+  if(CFG_PROBLEM){
+    show('screen-login');
+    msg('l-msg', CFG_PROBLEM, 'error');
+  } else {
   sb.auth.onAuthStateChange((event) => {
     if(event === 'PASSWORD_RECOVERY'){
       recoveryMode = true;
@@ -1154,6 +1171,7 @@
     if(data.session && !data.session.user.is_anonymous) await enterPanel();
     else show('screen-login');
   })();
+  }
 </script>
 </body>
 </html>
