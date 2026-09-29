@@ -496,11 +496,6 @@
   .counter-offer{ margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--line); }
   .counter-offer .req-actions{ margin-top: 10px; }
 
-  .footer-note{
-    padding: 14px 24px 20px; text-align: center;
-    font-size: var(--fs-xs); color: var(--muted); opacity: 0.7;
-  }
-
   .conn-banner{
     margin: 0 24px 14px;
     padding: 10px 14px;
@@ -709,10 +704,9 @@
       overflow-y: auto;
       -webkit-overflow-scrolling: touch;
       overscroll-behavior: contain;
-    }
-    .footer-note{
-      flex: none;
-      padding-bottom: calc(20px + env(safe-area-inset-bottom));
+      /* Под последней кнопкой — место под полоску iPhone внизу экрана,
+         чтобы кнопку не приходилось нажимать поверх неё. */
+      padding-bottom: calc(24px + env(safe-area-inset-bottom));
     }
   }
 
@@ -1195,8 +1189,6 @@ void main(){
     <section id="view-car" hidden></section>
     <section id="view-banned" hidden></section>
   </main>
-
-  <div class="footer-note">Демо-прототип · данные не сохраняются между сессиями</div>
 </div>
 
 <!-- Библиотека Supabase. Раньше стояла в <head> и держала страницу пустой,
