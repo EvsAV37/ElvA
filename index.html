@@ -560,7 +560,15 @@
   @media (prefers-reduced-motion: reduce){
     .menu-overlay, .side-menu{ transition: none; }
   }
-  .menu-profile{ padding-bottom: 4px; }
+  /* Верх меню — кнопка «Мой профиль»: фото, имя, рейтинг и стрелка. */
+  .menu-profile{
+    appearance: none; background: transparent; border: none; color: inherit;
+    font: inherit; text-align: left; cursor: pointer; width: 100%;
+    display: flex; align-items: center; gap: 14px; padding: 0 0 4px;
+  }
+  .menu-profile .mp-text{ flex: 1; min-width: 0; }
+  .menu-profile .mp-text > span{ display: block; }
+  .menu-profile .mp-chev{ color: var(--muted); font-size: 24px; line-height: 1; }
   .menu-name{ font-size: var(--fs-l); font-weight: 700; }
   .menu-rating{ margin-top: 6px; font-size: var(--fs-s); color: var(--ice); }
   .menu-role-note{ margin-top: 4px; font-size: var(--fs-xs); color: var(--muted); }
@@ -819,14 +827,14 @@
   .plate-lg{ font-size: 34px; }
 
   /* ---------- Предложение водителя ----------
-     Марка, под ней цвет, цена и время подачи. Номера здесь нет: пассажир
-     видит его, только когда выберет водителя. */
-  .offer-big{ gap: 8px; }
+     Слева марка и под ней цвет, справа цена и под ней время подачи. Ниже —
+     водитель с фото. Номера здесь нет: пассажир видит его, только когда
+     выберет водителя. */
+  .ob-head{ display: flex; flex-direction: column; gap: 2px; }
+  .ob-line{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .ob-car{ font-size: var(--fs-m); font-weight: 800; line-height: 1.3; color: var(--text); }
   .ob-color{ font-size: var(--fs-s); font-weight: 500; line-height: 1.3; color: var(--text); }
-  .ob-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .ob-eta{ font-size: var(--fs-m); font-weight: 700; color: var(--text); white-space: nowrap; }
-  .offer-big .btn-accept{ margin-top: 4px; }
 
   /* ---------- Фото профиля ----------
      Круг под фото. Пока фото нет — первая буква имени. Картинка лежит
@@ -839,6 +847,52 @@
     font-weight: 800; font-size: calc(var(--av, 36px) * 0.45); line-height: 1;
   }
   .avatar img{ position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+  .avatar svg{ width: 60%; height: 60%; opacity: 0.8; }
+
+  /* Человек крупно: фото, справа имя жирно и рейтинг под ним. */
+  .person-big{ display: flex; align-items: center; gap: 12px; }
+  .pb-who{ display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+  .pb-name{ font-size: var(--fs-m); font-weight: 700; color: var(--text); }
+  /* Лента водителя: пассажир сверху карточки, справа время заказа. */
+  .pax-row{ display: flex; align-items: center; gap: 12px; }
+  .pax-row .req-time{ align-self: flex-start; margin-top: 4px; }
+
+  /* ---------- Экран «Мой профиль» ---------- */
+  #view-profile:not([hidden]){ display: flex; flex-direction: column; gap: 16px; }
+  .profile-card{ align-items: center; text-align: center; }
+  .profile-card .avatar{ margin-top: 4px; }
+  .profile-name{ font-size: var(--fs-l); font-weight: 800; }
+  .profile-phone{ font-size: var(--fs-s); color: var(--muted); margin-top: -8px; }
+  .profile-note{ font-size: var(--fs-s); color: var(--muted); line-height: 1.5; margin: 0; }
+  .profile-card .btn-stack{ align-self: stretch; }
+  .photo-pill{
+    display: inline-flex; align-items: center; font-size: var(--fs-xs); font-weight: 700;
+    padding: 5px 10px; border-radius: 999px; background: var(--surface);
+    border: 1px solid var(--line); color: var(--ice);
+  }
+  .photo-notice{
+    align-self: stretch; text-align: left; font-size: var(--fs-s); line-height: 1.5; color: var(--text);
+    background: rgba(232,115,123,0.12); border: 1px solid var(--danger); border-radius: 12px; padding: 10px 14px;
+  }
+
+  /* Обрезка фото: весь экран, фото двигается пальцем и увеличивается щипком. */
+  .crop{
+    position: fixed; inset: 0; z-index: 60; background: #000;
+    display: flex; flex-direction: column;
+    padding: calc(16px + env(safe-area-inset-top)) 20px calc(16px + env(safe-area-inset-bottom));
+  }
+  .crop-title{ text-align: center; font-weight: 700; font-size: var(--fs-m); color: var(--text); }
+  .crop-area{ flex: 1; position: relative; overflow: hidden; margin: 16px -20px; touch-action: none; cursor: grab; }
+  .crop-area img{
+    position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0;
+    user-select: none; -webkit-user-select: none; -webkit-user-drag: none; pointer-events: none;
+  }
+  .crop-ring{
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%);
+    border-radius: 50%; box-shadow: 0 0 0 2000px rgba(0,0,0,0.62);
+    border: 2px solid rgba(255,255,255,0.85); pointer-events: none;
+  }
+  .crop-hint{ text-align: center; color: var(--muted); font-size: var(--fs-s); margin-bottom: 16px; }
 
   /* ---------- Экран ожидания: номер первым ---------- */
   .car-top-plate{ display: flex; justify-content: center; margin: 4px 0; }
@@ -1127,11 +1181,15 @@ void main(){
        человек сейчас находится. -->
   <div class="menu-overlay" id="menu-overlay" hidden onclick="closeMenu()"></div>
   <nav class="side-menu" id="side-menu" hidden>
-    <div class="menu-profile">
-      <div class="menu-name" id="menu-name">—</div>
-      <div class="menu-rating" id="menu-rating"></div>
-      <div class="menu-role-note" id="menu-role-note"></div>
-    </div>
+    <button class="menu-profile" onclick="openProfile()" aria-label="Мой профиль">
+      <span id="menu-avatar"></span>
+      <span class="mp-text">
+        <span class="menu-name" id="menu-name">—</span>
+        <span class="menu-rating" id="menu-rating"></span>
+        <span class="menu-role-note" id="menu-role-note"></span>
+      </span>
+      <span class="mp-chev" aria-hidden="true">›</span>
+    </button>
 
     <button class="btn-primary btn-login menu-role-switch" id="menu-role-switch" onclick="switchRoleFromMenu()">—</button>
 
@@ -1187,9 +1245,12 @@ void main(){
     <section id="view-history" hidden></section>
     <section id="view-help" hidden></section>
     <section id="view-car" hidden></section>
+    <section id="view-profile" hidden></section>
     <section id="view-banned" hidden></section>
   </main>
 </div>
+<!-- Выбор фото: iPhone сам предложит «Снять фото» или «Медиатека». -->
+<input type="file" id="photo-input" accept="image/*" hidden onchange="onPhotoPicked(this)">
 
 <!-- Библиотека Supabase. Раньше стояла в <head> и держала страницу пустой,
      пока скачивалась; здесь она грузится уже после того, как заставка на экране. -->
@@ -1487,13 +1548,14 @@ void main(){
       ]);
       if(!drv.error){
         driverProfiles = {};
-        // avatar: фото водителя. Пока его нигде нет — появится вместе с
-        // загрузкой фото, и тогда само встанет в предложения и экран ожидания.
-        drv.data.forEach(r => { driverProfiles[r.driver_id] = { sum: r.rating_sum, count: r.rating_count, available: r.is_available !== false, avatar: r.avatar_url || null }; });
+        // avatar: одобренное фото (ссылка). База сама копирует его сюда
+        // из профиля (25-й SQL).
+        drv.data.forEach(r => { driverProfiles[r.driver_id] = { sum: r.rating_sum, count: r.rating_count, available: r.is_available !== false, avatar: photoUrl(r.avatar_url) }; });
       }
       if(!pax.error){
         passengerProfiles = {};
-        pax.data.forEach(r => { passengerProfiles[r.passenger_id] = { sum: r.rating_sum, count: r.rating_count }; });
+        // name — имя пассажира для ленты водителя, avatar — одобренное фото.
+        pax.data.forEach(r => { passengerProfiles[r.passenger_id] = { sum: r.rating_sum, count: r.rating_count, name: r.name || '', avatar: photoUrl(r.avatar_url) }; });
       }
       renderPassenger();
       renderDriver();
@@ -1697,7 +1759,7 @@ void main(){
   function applyBan(){
     const el = document.getElementById('view-banned');
     if(fullBanActive()){
-      for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car']){
+      for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car', 'view-profile']){
         document.getElementById(id).hidden = true;
       }
       el.innerHTML = `
@@ -1746,6 +1808,7 @@ void main(){
     if(!document.getElementById('view-history').hidden) return null;
     if(!document.getElementById('view-help').hidden) return null;
     if(!document.getElementById('view-car').hidden) return null;
+    if(!document.getElementById('view-profile').hidden) return null;
     return currentView === 'driver' ? 'driver' : 'passenger';
   }
 
@@ -2207,18 +2270,17 @@ void main(){
       <div class="order-list offers-list">
         ${list.map(of => `
           <div class="req-card offer-card offer-big">
-            ${of.car ? `<div>
-              <div class="ob-car">${esc(of.car.model)}</div>
-              ${of.car.color ? `<div class="ob-color">${esc(of.car.color)}</div>` : ''}
-            </div>` : ''}
-            <div class="ob-row">
-              <span class="price-l">${esc(of.price)} ₽</span>
-              <span class="ob-eta">через ${esc(of.eta)} мин</span>
+            <div class="ob-head">
+              <div class="ob-line">
+                <span class="ob-car">${of.car ? esc(of.car.model) : ''}</span>
+                <span class="price-l">${esc(of.price)} ₽</span>
+              </div>
+              <div class="ob-line">
+                <span class="ob-color">${of.car ? esc(of.car.color) : ''}</span>
+                <span class="ob-eta">через ${esc(of.eta)} мин</span>
+              </div>
             </div>
-            <div class="person-line">
-              ${avatarHtml(of.driverName, driverAvatar(of.driverId), 28)}
-              <span>${esc(of.driverName)} ${ratingBadge(driverProfiles[of.driverId])}</span>
-            </div>
+            ${personBig(avatarHtml(of.driverName, driverAvatar(of.driverId), 48), of.driverName, ratingBadge(driverProfiles[of.driverId]))}
             <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
           </div>
         `).join('')}
@@ -2434,10 +2496,7 @@ void main(){
             <span class="car-top-name">${esc(order.car.model)}${order.car.color ? `<span class="car-top-color">${esc(order.car.color)}</span>` : ''}</span>
             ${carWhenHtml(order)}
           </div>
-          <div class="person-line">
-            ${avatarHtml(order.driverName, driverAvatar(order.driverId), 28)}
-            <span>${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}</span>
-          </div>
+          ${personBig(avatarHtml(order.driverName, driverAvatar(order.driverId), 56), order.driverName, ratingBadge(driverProfiles[order.driverId]))}
         ` : `
           ${routeHtml}
           ${order.driverName ? `<div class="person-line">
@@ -2767,11 +2826,9 @@ void main(){
       html += `<div class="order-list">`;
       html += mine.map(o => o.status === 'searching' ? `
         <div class="req-card">
-          <div class="req-top">
-            <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
-            <div class="req-time">${esc(o.time)}</div>
-          </div>
-          <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span><span class="order-meta">· пассажир ${ratingBadge(passengerProfiles[o.passengerId])}</span></div>
+          ${paxRowHtml(o)}
+          <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+          <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span></div>
           ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
           ${driverOfferBlock(o, offers.find(of => of.orderId === o.id && of.driverId === driverId))}
         </div>
@@ -2783,11 +2840,9 @@ void main(){
       html += `${mine.length ? '<div class="section-label">Свободные заказы</div>' : ''}<div class="order-list">`;
       html += pending.map(o => `
         <div class="req-card" id="req-${o.id}">
-          <div class="req-top">
-            <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
-            <div class="req-time">${esc(o.time)}</div>
-          </div>
-          <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span><span class="order-meta">· пассажир ${ratingBadge(passengerProfiles[o.passengerId])}</span></div>
+          ${paxRowHtml(o)}
+          <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+          <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span></div>
           ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
           ${etaSelectingId === o.id ? `
             <div class="eta-picker">
@@ -2845,10 +2900,7 @@ void main(){
           <span class="price-l">${esc(o.price)} ₽</span>
           ${o.status === 'accepted' ? driverEtaHtml(o) : ''}
         </div>
-        <div class="person-line">
-          ${avatarHtml('Пассажир', null, 28)}
-          <span>Пассажир ${ratingBadge(passengerProfiles[o.passengerId])}</span>
-        </div>
+        ${personBig(passengerAvatarHtml(o.passengerId, 56), passengerName(o.passengerId) || 'Пассажир', ratingBadge(passengerProfiles[o.passengerId]))}
         ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
         ${o.status === 'arrived' ? `<div class="driver-info">${driverWaitBlock(o)}</div>` : ''}
         <div class="btn-stack">
@@ -3056,6 +3108,7 @@ void main(){
     document.getElementById('view-driver').hidden = true;
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-car').hidden = true;
+    document.getElementById('view-profile').hidden = true;
     document.getElementById('view-history').hidden = false;
     reportPresence(true);
     renderHistory(true);
@@ -3215,6 +3268,10 @@ void main(){
     <p><b>Android:</b> откройте меню браузера (три точки) и выберите «Добавить на главный экран» или «Установить приложение».</p>
     <p>Дальше запускайте ${APP_NAME} с иконки — так оно открывается во весь экран и получает уведомления.</p>`;
 
+  const HELP_PHOTO_ANSWER = `
+        <p>Откройте меню и нажмите на своё имя вверху — откроется <b>«Мой профиль»</b>. Там нажмите <b>«Добавить фото»</b>, выберите снимок, подвиньте его в круге и нажмите «Готово».</p>
+        <p>Фото увидят водители и пассажиры, с которыми вы едете. Сначала его проверяет поддержка: пока идёт проверка, другие видят букву или прежнее фото. Если фото не подойдёт, в профиле будет написано почему.</p>`;
+
   const HELP_FAQ = {
     passenger: [
       { q: 'Как заказать такси?', a: `
@@ -3237,6 +3294,7 @@ void main(){
       { q: 'Забыл вещь в машине', a: `
         <p>В течение часа после поездки откройте в меню <b>«История заказов»</b> — у этой поездки будет кнопка «Забыли что-то? Позвонить водителю».</p>
         <p>Если час прошёл, напишите в поддержку: укажите дату и маршрут поездки.</p>` },
+      { q: 'Как поставить фото?', a: HELP_PHOTO_ANSWER },
       { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
         <p>Пока вы смотрите на свой заказ, уведомления о новых предложениях не приходят: они и так появляются на экране.</p>` },
       { q: `Как установить ${APP_NAME} на экран «Домой»?`, a: HELP_INSTALL_ANSWER }
@@ -3266,6 +3324,7 @@ void main(){
         <p>Если пассажир не выходит, сначала попробуйте позвонить.</p>` },
       { q: 'Где посмотреть заработок?', a: `
         <p>В меню — <b>«История заказов»</b> (у водителя она называется «Мои поездки»). Поездки собраны по дням, у каждого дня — сумма.</p>` },
+      { q: 'Как поставить фото?', a: HELP_PHOTO_ANSWER },
       { q: 'Не приходят уведомления', a: HELP_PUSH_ANSWER + `
         <p>Проверьте, что переключатель над лентой стоит на <b>«Свободен»</b>.</p>
         <p>Пока лента открыта на экране, уведомления о новых заказах не приходят: заказы и так появляются в ленте.</p>` },
@@ -3280,6 +3339,7 @@ void main(){
     document.getElementById('view-driver').hidden = true;
     document.getElementById('view-history').hidden = true;
     document.getElementById('view-car').hidden = true;
+    document.getElementById('view-profile').hidden = true;
     renderHelp();
     document.getElementById('view-help').hidden = false;
     reportPresence(true);
@@ -3457,7 +3517,7 @@ void main(){
     const cur = myCar || { model: '', color: '', plate: '' };
     const known = CAR_COLORS.some(c => c[0] === cur.color);
     carDraft = { model: cur.model, color: cur.color, other: !!cur.color && !known, plate: cur.plate };
-    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help']){
+    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-profile']){
       document.getElementById(id).hidden = true;
     }
     renderCar();
@@ -3629,6 +3689,344 @@ void main(){
     return p ? p.avatar : null;
   }
 
+  // В базе хранится путь фото в папке avatars, а не ссылка: ссылку строим
+  // из адреса Supabase (elva-config.js). Переезд на свой сервер — и ссылки
+  // сами станут новыми.
+  const PHOTO_BUCKET = 'avatars';
+  function photoUrl(path){
+    if(!path) return null;
+    if(/^https:\/\//.test(path)) return path;
+    try { return sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl; } catch(e){ return null; }
+  }
+
+  function passengerAvatar(id){
+    const p = passengerProfiles[id];
+    return p ? p.avatar : null;
+  }
+  function passengerName(id){
+    const p = passengerProfiles[id];
+    return p && p.name ? p.name : '';
+  }
+  // Пассажир без имени и без фото — значок человека, а не буква «П».
+  const PERSON_ICON = '<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="12" cy="8" r="4.2"/><path d="M3.8 21c.6-4.6 4-7 8.2-7s7.6 2.4 8.2 7z"/></svg>';
+  function passengerAvatarHtml(id, size){
+    const name = passengerName(id);
+    const url = passengerAvatar(id);
+    if(!name && !url) return `<span class="avatar" aria-hidden="true" style="--av:${size}px">${PERSON_ICON}</span>`;
+    return avatarHtml(name, url, size);
+  }
+  function personBig(avatar, name, badge){
+    return `<div class="person-big">${avatar}<div class="pb-who"><span class="pb-name">${esc(name)}</span>${badge}</div></div>`;
+  }
+  // Строка пассажира сверху карточки в ленте водителя.
+  function paxRowHtml(o){
+    return `<div class="pax-row">
+      ${passengerAvatarHtml(o.passengerId, 48)}
+      <div class="pb-who"><span class="pb-name">${esc(passengerName(o.passengerId) || 'Пассажир')}</span>${ratingBadge(passengerProfiles[o.passengerId])}</div>
+      <div class="req-time">${esc(o.time)}</div>
+    </div>`;
+  }
+
+  // Своё одобренное фото (то, что видят другие).
+  function myAvatarUrl(){
+    if(myPhoto) return photoUrl(myPhoto.approved);
+    return passengerAvatar(passengerId);
+  }
+
+  // ---------- экран «Мой профиль» ----------
+  // myPhoto — ответ базы my_photo(): approved (одобренное), pending (на
+  // проверке), notice (отказ или удаление поддержкой с причиной), check
+  // (включена ли проверка).
+  let myPhoto = null;
+
+  async function loadMyPhoto(){
+    const { data, error } = await sb.rpc('my_photo');
+    if(error){ console.error('my_photo:', error.message); return; }
+    myPhoto = data;
+  }
+
+  async function openProfile(){
+    closeMenu();
+    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car']){
+      document.getElementById(id).hidden = true;
+    }
+    renderProfile();
+    document.getElementById('view-profile').hidden = false;
+    reportPresence(true);
+    const scroller = document.querySelector('main');
+    if(scroller) scroller.scrollTop = 0;
+    await loadMyPhoto();
+    if(!document.getElementById('view-profile').hidden) renderProfile();
+  }
+
+  function closeProfile(){
+    document.getElementById('view-profile').hidden = true;
+    switchView(currentView);
+  }
+
+  function formatPhone(p){
+    return String(p || '').replace(/^\+7(\d{3})(\d{3})(\d{2})(\d{2})$/, '+7 $1 $2-$3-$4');
+  }
+
+  // «Не видно лица» -> «не видно лица» (для «Фото не подошло: …»).
+  function reasonLower(r){
+    r = String(r || '').trim();
+    return r.length > 1 && r[1] === r[1].toLowerCase() ? r[0].toLowerCase() + r.slice(1) : r;
+  }
+
+  function renderProfile(){
+    const el = document.getElementById('view-profile');
+    const name = (myProfile && myProfile.name) || '—';
+    const st = myPhoto;
+    let circle, extra = '', note = '', buttons = '';
+    const replaceBtns = `
+      <button class="btn-call" onclick="pickPhoto()">Заменить фото</button>
+      <button class="btn-ghost" onclick="deleteMyPhoto()">Удалить фото</button>`;
+
+    if(!st){
+      circle = avatarHtml(name, myAvatarUrl(), 128);
+    } else if(st.pending){
+      circle = avatarHtml(name, photoUrl(st.pending), 128);
+      extra = '<span class="photo-pill">На проверке</span>';
+      note = 'Фото проверяет поддержка, обычно это недолго. ' + (st.approved
+        ? 'Пока другие видят прежнее фото.' : 'Пока другие видят вместо него букву.');
+      buttons = replaceBtns;
+    } else if(st.approved){
+      circle = avatarHtml(name, photoUrl(st.approved), 128);
+      note = 'Фото видят водители и пассажиры, с которыми вы едете.';
+      buttons = replaceBtns;
+    } else if(st.notice){
+      circle = avatarHtml(name, null, 128);
+      extra = `<div class="photo-notice">${st.notice.kind === 'removed' ? 'Фото удалено поддержкой' : 'Фото не подошло'}${
+        st.notice.reason ? ': ' + esc(reasonLower(st.notice.reason)) : ''}.</div>`;
+      note = st.check ? 'Выберите другое фото — поддержка проверит его снова.' : 'Можно выбрать другое фото.';
+      buttons = '<button class="btn-primary" onclick="pickPhoto()">Выбрать другое фото</button>';
+    } else {
+      circle = avatarHtml(name, null, 128);
+      note = 'Фото увидят водители и пассажиры, с которыми вы едете, — так вас проще узнать при встрече.'
+        + (st.check ? ' Перед показом фото проверяет поддержка.' : '');
+      buttons = '<button class="btn-primary" onclick="pickPhoto()">Добавить фото</button>';
+    }
+
+    el.innerHTML = `
+      <div class="history-head">
+        <button class="history-back" onclick="closeProfile()">← Назад</button>
+        <h1 class="view-title">Мой профиль</h1>
+      </div>
+      <div class="order-card profile-card">
+        ${circle}
+        <div class="profile-name">${esc(name)}</div>
+        <div class="profile-phone">${esc(formatPhone(myProfile && myProfile.phone))}</div>
+        ${extra}
+        ${note ? `<p class="profile-note">${note}</p>` : ''}
+        ${buttons ? `<div class="btn-stack">${buttons}</div>` : ''}
+      </div>`;
+  }
+
+  function pickPhoto(){
+    document.getElementById('photo-input').click();
+  }
+
+  function onPhotoPicked(input){
+    const file = input.files && input.files[0];
+    input.value = '';   // иначе тот же снимок второй раз не выбрать
+    if(!file) return;
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => openCrop(img, url);
+    img.onerror = () => { URL.revokeObjectURL(url); showToast('Не удалось открыть фото. Выберите другое', 3000); };
+    img.src = url;
+  }
+
+  // ---------- обрезка ----------
+  // Фото лежит под кругом. x, y — сдвиг центра фото от центра круга (в точках
+  // экрана), scale — во сколько раз фото уменьшено. Фото всегда закрывает круг.
+  let crop = null;
+
+  function openCrop(img, url){
+    const wrap = document.createElement('div');
+    wrap.className = 'crop';
+    wrap.id = 'crop';
+    wrap.innerHTML = `
+      <div class="crop-title">Фото профиля</div>
+      <div class="crop-area" id="crop-area"><div class="crop-ring" id="crop-ring"></div></div>
+      <div class="crop-hint">Двигайте фото пальцем, увеличивайте щипком</div>
+      <div class="btn-stack">
+        <button class="btn-primary" onclick="savePhoto()">Готово</button>
+        <button class="btn-ghost" onclick="closeCrop()">Отмена</button>
+      </div>`;
+    document.body.appendChild(wrap);
+    img.draggable = false;
+    const area = wrap.querySelector('#crop-area');
+    area.insertBefore(img, area.firstChild);
+
+    const rect = area.getBoundingClientRect();
+    const d = Math.max(120, Math.min(rect.width - 40, rect.height - 40, 320));
+    const ring = wrap.querySelector('#crop-ring');
+    ring.style.width = ring.style.height = d + 'px';
+    const nw = img.naturalWidth, nh = img.naturalHeight;
+    const min = d / Math.min(nw, nh);
+    crop = { img, url, area, d, nw, nh, min, max: min * 5, scale: min, x: 0, y: 0, pointers: new Map(), start: null };
+    cropApply();
+
+    area.addEventListener('pointerdown', cropDown);
+    area.addEventListener('pointermove', cropMove);
+    area.addEventListener('pointerup', cropUp);
+    area.addEventListener('pointercancel', cropUp);
+    area.addEventListener('wheel', cropWheel, { passive: false });
+  }
+
+  function cropClamp(){
+    const c = crop;
+    c.scale = Math.min(c.max, Math.max(c.min, c.scale));
+    const mx = (c.nw * c.scale - c.d) / 2, my = (c.nh * c.scale - c.d) / 2;
+    c.x = Math.min(mx, Math.max(-mx, c.x));
+    c.y = Math.min(my, Math.max(-my, c.y));
+  }
+
+  function cropApply(){
+    const c = crop;
+    cropClamp();
+    const r = c.area.getBoundingClientRect();
+    const left = r.width / 2 + c.x - c.nw * c.scale / 2;
+    const top = r.height / 2 + c.y - c.nh * c.scale / 2;
+    c.img.style.transform = `translate(${left}px, ${top}px) scale(${c.scale})`;
+  }
+
+  // Один палец (или мышь) — двигаем, два — щипок. Точка между пальцами
+  // остаётся под пальцами.
+  function cropStart(){
+    const c = crop;
+    const pts = [...c.pointers.values()];
+    const r = c.area.getBoundingClientRect();
+    const mid = pts.length > 1
+      ? { x: (pts[0].x + pts[1].x) / 2, y: (pts[0].y + pts[1].y) / 2 } : pts[0];
+    c.start = {
+      x: c.x, y: c.y, scale: c.scale,
+      mid: { x: mid.x - r.left - r.width / 2, y: mid.y - r.top - r.height / 2 },
+      dist: pts.length > 1 ? Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y) : 0
+    };
+  }
+  function cropDown(e){
+    if(!crop) return;
+    crop.area.setPointerCapture(e.pointerId);
+    crop.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    cropStart();
+  }
+  function cropMove(e){
+    const c = crop;
+    if(!c || !c.pointers.has(e.pointerId)) return;
+    c.pointers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+    const pts = [...c.pointers.values()];
+    const r = c.area.getBoundingClientRect();
+    const s = c.start;
+    if(pts.length > 1){
+      const dist = Math.hypot(pts[0].x - pts[1].x, pts[0].y - pts[1].y);
+      const mid = { x: (pts[0].x + pts[1].x) / 2 - r.left - r.width / 2, y: (pts[0].y + pts[1].y) / 2 - r.top - r.height / 2 };
+      c.scale = Math.min(c.max, Math.max(c.min, s.scale * dist / (s.dist || dist)));
+      const k = c.scale / s.scale;
+      c.x = mid.x - (s.mid.x - s.x) * k;
+      c.y = mid.y - (s.mid.y - s.y) * k;
+    } else {
+      c.x = s.x + (pts[0].x - r.left - r.width / 2 - s.mid.x);
+      c.y = s.y + (pts[0].y - r.top - r.height / 2 - s.mid.y);
+    }
+    cropApply();
+  }
+  function cropUp(e){
+    if(!crop) return;
+    crop.pointers.delete(e.pointerId);
+    if(crop.pointers.size) cropStart();
+  }
+  // Колёсико мыши на компьютере — увеличить / уменьшить.
+  function cropWheel(e){
+    e.preventDefault();
+    const c = crop;
+    const k = Math.exp(-e.deltaY / 400);
+    const prev = c.scale;
+    c.scale = Math.min(c.max, Math.max(c.min, c.scale * k));
+    c.x *= c.scale / prev; c.y *= c.scale / prev;
+    cropApply();
+  }
+
+  function closeCrop(){
+    const el = document.getElementById('crop');
+    if(el) el.remove();
+    if(crop) URL.revokeObjectURL(crop.url);
+    crop = null;
+  }
+
+  function randomPhotoName(){
+    const b = new Uint8Array(16);
+    crypto.getRandomValues(b);
+    return Array.from(b, x => x.toString(16).padStart(2, '0')).join('');
+  }
+
+  // Ненужные файлы (прежнее фото, не дождавшееся проверки) убираем из
+  // хранилища. Не вышло — не страшно, файл просто останется лежать.
+  function removePhotoFiles(paths){
+    if(!paths || !paths.length) return;
+    sb.storage.from(PHOTO_BUCKET).remove(paths).catch(() => {});
+  }
+
+  function photoErrorText(e){
+    const m = String((e && e.message) || e || '');
+    if(/too many photos/.test(m)) return 'Сегодня фото меняли уже много раз. Попробуйте завтра';
+    return 'Не удалось сохранить фото. Проверьте интернет и попробуйте ещё раз';
+  }
+
+  // «Готово»: вырезаем круг в квадрат 512×512, сжимаем в JPEG, загружаем
+  // в свою папку и сообщаем базе.
+  async function savePhoto(){
+    const c = crop;
+    if(!c || !myProfile) return;
+    const size = c.d / c.scale;
+    const sx = c.nw / 2 - (c.x + c.d / 2) / c.scale;
+    const sy = c.nh / 2 - (c.y + c.d / 2) / c.scale;
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = 512;
+    const ctx = canvas.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(c.img, sx, sy, size, size, 0, 0, 512, 512);
+    const blob = await new Promise(r => canvas.toBlob(r, 'image/jpeg', 0.85));
+    if(!blob){ showToast(photoErrorText(), 3000); return; }
+
+    const path = myProfile.profileId + '/' + randomPhotoName() + '.jpg';
+    try {
+      const up = await sb.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType: 'image/jpeg', cacheControl: '31536000', upsert: false });
+      if(up.error) throw up.error;
+      const { data, error } = await sb.rpc('set_my_photo', { p_path: path });
+      if(error){ removePhotoFiles([path]); throw error; }
+      removePhotoFiles(data.delete_paths);
+      myPhoto = data;
+    } catch(e){
+      console.error('photo:', e);
+      showToast(photoErrorText(e), 3500);
+      return;
+    }
+    closeCrop();
+    renderProfile();
+    fetchProfiles();
+    showToast(myPhoto.pending ? 'Фото отправлено на проверку' : 'Фото сохранено', 3000);
+  }
+
+  async function deleteMyPhoto(){
+    const ok = await confirmSheet({
+      title: 'Удалить фото?',
+      text: 'Вместо фото другие увидят первую букву вашего имени.',
+      okText: 'Удалить',
+      cancelText: 'Не удалять'
+    });
+    if(!ok) return;
+    const { data, error } = await sb.rpc('delete_my_photo');
+    if(error){ showToast(photoErrorText(error), 3500); return; }
+    removePhotoFiles(data.delete_paths);
+    myPhoto = data;
+    renderProfile();
+    fetchProfiles();
+    showToast('Фото удалено');
+  }
+
   // ---------- нажатия кнопок ----------
   // Без этого пустого обработчика iPhone не показывает :active (утапливание).
   document.addEventListener('touchstart', () => {}, { passive: true });
@@ -3664,7 +4062,7 @@ void main(){
     'confirmAcceptSelected', 'withdrawOffer', 'arriveOrder', 'startTrip', 'completeOrder',
     'confirmRatePassenger', 'callCounterpart', 'saveCar',
     'loginStart', 'loginConfirm', 'loginSaveName', 'loginFallbackStart', 'loginFallbackCheck',
-    'enablePush', 'sendTestPush', 'recheckBan', 'loadMoreHistory'
+    'enablePush', 'sendTestPush', 'recheckBan', 'loadMoreHistory', 'savePhoto', 'deleteMyPhoto'
   ].forEach(name => {
     if(typeof window[name] === 'function') window[name] = busyAction(window[name]);
     else console.warn('busyAction: нет функции', name);
@@ -3706,7 +4104,9 @@ void main(){
   // Рейтинг в меню — всегда той роли, в которой человек сейчас находится:
   // у водителя и пассажира это два независимых числа.
   function refreshMenu(){
-    document.getElementById('menu-name').textContent = (myProfile && myProfile.name) || '—';
+    const myName = (myProfile && myProfile.name) || '—';
+    document.getElementById('menu-name').textContent = myName;
+    document.getElementById('menu-avatar').innerHTML = avatarHtml(myName, myAvatarUrl(), 56);
 
     const isDriver = currentView === 'driver';
     const profile = isDriver ? driverProfiles[driverId] : passengerProfiles[passengerId];
@@ -3767,6 +4167,7 @@ void main(){
     document.getElementById('view-history').hidden = true;
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-car').hidden = true;
+    document.getElementById('view-profile').hidden = true;
     document.getElementById('view-passenger').hidden = view !== 'passenger';
     document.getElementById('view-driver').hidden = view !== 'driver';
     applyBan();

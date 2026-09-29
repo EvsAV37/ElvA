@@ -233,6 +233,22 @@
   .legend{ display: flex; gap: 16px; font-size: var(--fs-s); color: var(--muted); }
   .legend i{ display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: 0; }
 
+  /* Фото: очередь проверки и фото в карточке человека. */
+  .tab .count{ color: var(--ice); margin-left: 6px; }
+  .photo-item .pi-top{ display: flex; gap: 16px; align-items: center; }
+  .pi-photo{ width: 112px; height: 112px; border-radius: 50%; object-fit: cover; flex: none; background: var(--surface-2); }
+  .pi-who{ display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+  .pi-old{ display: inline-flex; align-items: center; gap: 6px; }
+  .pi-old img{ width: 24px; height: 24px; border-radius: 50%; object-fit: cover; }
+  .av-h{ display: flex; align-items: center; gap: 14px; min-width: 0; }
+  .av-h img, .av-h .av-letter{ width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; }
+  .av-h .av-letter{
+    display: flex; align-items: center; justify-content: center;
+    background: rgba(143,224,232,0.16); color: var(--ice); font-weight: 800; font-size: 28px;
+  }
+  .reasons{ display: flex; flex-direction: column; gap: 8px; }
+  .reasons .chip{ text-align: left; width: 100%; }
+
   /* Окно подтверждения снизу — как в приложении. На компьютере — по центру. */
   .confirm-overlay{
     position: fixed; inset: 0; z-index: 80;
@@ -482,6 +498,7 @@
     show('screen-panel');
     renderTabs();
     openTab(currentTab);
+    loadPhotoSettings().then(renderTabs);
   }
 
   // ---------- вкладки ----------
@@ -489,6 +506,7 @@
   const TABS = [
     { id: 'people',  title: 'Люди',   render: renderPeople },
     { id: 'orders',  title: 'Заказы', render: renderOrders },
+    { id: 'photos',  title: 'Фото',   render: renderPhotos },
     { id: 'stats',   title: 'Цифры',  render: renderStats },
     { id: 'log',     title: 'Журнал', render: renderLog },
     { id: 'admins',  title: 'Админы', render: renderAdmins },
@@ -498,7 +516,9 @@
 
   function renderTabs(){
     $('tabs').innerHTML = TABS.map(t =>
-      `<button class="tab ${t.id === currentTab ? 'active' : ''}" onclick="openTab('${t.id}')">${t.title}</button>`).join('');
+      `<button class="tab ${t.id === currentTab ? 'active' : ''}" onclick="openTab('${t.id}')">${t.title}${
+        t.id === 'photos' && photoSettings && photoSettings.check && photoSettings.pending
+          ? `<span class="count">${photoSettings.pending}</span>` : ''}</button>`).join('');
   }
   function openTab(id){
     currentTab = id;
@@ -520,7 +540,12 @@
     order_cancel: 'Отменил заказ',
     order_complete: 'Завершил заказ',
     ban: 'Заблокировал',
-    unban: 'Снял блокировку'
+    unban: 'Снял блокировку',
+    photo_approve: 'Одобрил фото',
+    photo_reject: 'Отклонил фото',
+    photo_remove: 'Удалил фото',
+    photo_check_on: 'Включил проверку фото',
+    photo_check_off: 'Выключил проверку фото'
   };
   let logLastId = null;
 
@@ -543,7 +568,8 @@
         <div class="row-main">${esc(ACTION_NAMES[r.action] || r.action)}${r.target ? ' · ' + esc(r.target) : ''}</div>
         <div class="row-sub">${esc(fmtTime(r.created_at))} · ${esc(r.admin_email || '—')}${
           r.action === 'ban' && r.details ? ' · ' + esc(banKind(r.details.scope)) + ', ' + esc(banUntil(r.details.until)) : ''}${
-          r.details && r.details.reason ? ' · причина: ' + esc(r.details.reason) : ''}</div>
+          r.details && r.details.reason ? ' · причина: ' + esc(r.details.reason) : ''}${
+          r.action === 'photo_check_off' && r.details && r.details.approved ? ' · сразу одобрено: ' + esc(r.details.approved) : ''}</div>
       </div>`).join(''));
     if(data.length) logLastId = data[data.length - 1].id;
     $('log-more').hidden = data.length < 50;
@@ -774,13 +800,18 @@
     if(isWide() && peopleResults) showResults(peopleResults);
     const target = personTarget();
     target.innerHTML = `${BACK()}<div class="card"><div class="msg muted">Загружаем…</div></div>`;
-    const { data, error } = await sb.rpc('admin_person', { p_id: id });
+    const [{ data, error }, photoRes] = await Promise.all([
+      sb.rpc('admin_person', { p_id: id }),
+      sb.rpc('admin_person_photo', { p_id: id })
+    ]);
     if(error){
       target.innerHTML = `${BACK()}<div class="card"><div class="msg error">Ошибка: ${esc(error.message)}</div></div>`;
       return;
     }
     currentPerson = data;
     const p = data.profile, pas = data.passenger, drv = data.driver;
+    const ph = photoRes.error ? null : photoRes.data;
+    const shownPhoto = ph && ph.approved ? photoUrl(ph.approved.path) : null;
     const inAppNow = p.app_seen_at && (Date.now() - Date.parse(p.app_seen_at) < 30000);
     const tel = String(p.phone || '').replace(/[^\d+]/g, '');
 
@@ -788,8 +819,12 @@
       ${BACK()}
       <div class="person-grid">
       <div class="card wide">
-        <h2>${esc(p.name || 'Без имени')}${drv ? '<span class="tag">водитель</span>' : ''}${
+        <div class="av-h">
+          ${shownPhoto ? `<img src="${esc(shownPhoto)}" alt="">`
+            : `<span class="av-letter">${esc((String(p.name || '?').trim()[0] || '?').toUpperCase())}</span>`}
+          <h2>${esc(p.name || 'Без имени')}${drv ? '<span class="tag">водитель</span>' : ''}${
           data.active_ban ? `<span class="tag red">${data.active_ban.scope === 'all' ? 'заблокирован' : 'бан водителя'}</span>` : ''}</h2>
+        </div>
         <a class="phone-link" href="tel:${esc(tel)}">${esc(p.phone)}</a>
         <dl class="kv">
           <dt>Регистрация</dt><dd>${esc(fmtDate(p.created_at))}</dd>
@@ -798,6 +833,7 @@
               : (p.last_active_at ? esc(fmtTime(p.last_active_at)) : 'нет данных')}</dd>
           <dt>Уведомления</dt><dd>${data.devices ? 'включены · ' + data.devices + ' ' + plural(data.devices, 'устройство', 'устройства', 'устройств') : 'выключены'}</dd>
           <dt>Входов</dt><dd>${data.sessions} ${plural(data.sessions, 'устройство', 'устройства', 'устройств')}</dd>
+          <dt>Фото</dt><dd>${personPhotoText(ph)}</dd>
         </dl>
       </div>
 
@@ -1000,6 +1036,165 @@
         : 'С ' + new Date(data.days[0].day + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}${CFG.cityGenitive ? ' по времени ' + esc(CFG.cityGenitive) : ''}.</div>`;
   }
 
+
+  // ---------- фото ----------
+  // Проверка включена: новое фото видит только его владелец, пока админ не
+  // одобрит. Выключена: фото сразу видно всем, здесь — новые за 7 дней,
+  // неподходящее можно удалить. Причину отказа или удаления человек увидит
+  // в приложении («Мой профиль»).
+  const PHOTO_BUCKET = 'avatars';
+  const PHOTO_REASONS = ['Не видно лица', 'Чужое фото или не человек', 'Неприличное фото'];
+  let photoSettings = null;   // { check, pending }
+  let photoList = [];         // то, что сейчас на вкладке «Фото»
+
+  // В базе — путь в папке avatars; ссылку строим из адреса Supabase.
+  function photoUrl(path){
+    if(!path) return null;
+    try { return sb.storage.from(PHOTO_BUCKET).getPublicUrl(path).data.publicUrl; } catch(e){ return null; }
+  }
+  // Файлы, которые больше не нужны. Не удалились — не страшно.
+  function removePhotoFiles(paths){
+    if(!paths || !paths.length) return;
+    sb.storage.from(PHOTO_BUCKET).remove(paths).catch(() => {});
+  }
+
+  async function loadPhotoSettings(){
+    const { data, error } = await sb.rpc('admin_photo_settings');
+    if(!error) photoSettings = data;
+    return photoSettings;
+  }
+
+  function photoAgo(ts){
+    const min = Math.max(0, Math.round((Date.now() - Date.parse(ts)) / 60000));
+    if(min < 1) return 'только что';
+    if(min < 60) return min + ' мин назад';
+    if(min < 24 * 60) return Math.floor(min / 60) + ' ч назад';
+    return fmtTime(ts);
+  }
+
+  async function renderPhotos(){
+    $('tab-body').innerHTML = `<div class="card"><div class="msg muted">Загружаем…</div></div>`;
+    await loadPhotoSettings();
+    renderTabs();
+    if(currentTab !== 'photos') return;
+    const on = !photoSettings || photoSettings.check;
+    const { data, error } = await sb.rpc('admin_photo_list', { p_mode: on ? 'pending' : 'recent' });
+    if(currentTab !== 'photos') return;
+    const list = error ? null : data;
+    photoList = list || [];
+    $('tab-body').innerHTML = `
+      <div class="card">
+        <h2>Проверка фото</h2>
+        <div class="chips">
+          <button class="chip ${on ? 'on' : ''}" onclick="setPhotoCheck(true)">Включена</button>
+          <button class="chip ${on ? '' : 'on'}" onclick="setPhotoCheck(false)">Выключена</button>
+        </div>
+        <div class="note plain">${on
+          ? 'Новое фото видит только его владелец, пока вы его не одобрите. Остальные видят букву или прежнее фото.'
+          : 'Новые фото сразу видны всем. Неподходящее можно удалить здесь или в карточке человека.'}</div>
+      </div>
+      <div class="card">
+        <div class="orders-head"><h2>${on ? 'Ждут проверки' + (list && list.length ? ' · ' + list.length : '') : 'Новые фото за 7 дней'}</h2>
+          <button class="link" onclick="renderPhotos()">Обновить</button></div>
+        ${error ? `<div class="msg error">Ошибка: ${esc(error.message)}</div>`
+          : !list.length ? `<div class="muted small">${on ? 'Новых фото нет.' : 'За 7 дней новых фото нет.'}</div>`
+          : `<div class="orders-list">${list.map(q => photoItem(q, on)).join('')}</div>`}
+      </div>`;
+  }
+
+  function photoItem(q, on){
+    const old = q.old_path ? photoUrl(q.old_path) : null;
+    return `<div class="order photo-item">
+      <div class="pi-top">
+        <img class="pi-photo" src="${esc(photoUrl(q.path))}" alt="">
+        <div class="pi-who">
+          <div class="row-main"><button class="link-inline" onclick="openPerson('${esc(q.profile_id)}')">${esc(q.name || 'Без имени')}</button>${
+            q.is_driver ? '<span class="tag">водитель</span>' : ''}</div>
+          <div class="row-sub">${esc(q.phone || '')}</div>
+          <div class="row-sub">${esc(photoAgo(q.created_at))}</div>
+          ${on ? `<div class="row-sub">${old ? `<span class="pi-old">Замена, было: <img src="${esc(old)}" alt=""></span>` : 'Новое фото'}</div>` : ''}
+        </div>
+      </div>
+      ${on
+        ? `<div class="btn-row">
+             <button class="btn-primary" onclick="photoApprove(${q.id})">Одобрить</button>
+             <button class="btn-call" onclick="photoReject(${q.id})">Отклонить…</button>
+           </div>`
+        : `<button class="btn-call" onclick="photoRemove('${esc(q.profile_id)}')">Удалить фото…</button>`}
+    </div>`;
+  }
+
+  async function photoApprove(id){
+    const { data, error } = await sb.rpc('admin_photo_approve', { p_photo_id: id });
+    if(error){ showToast('Не получилось: ' + error.message, 3500); renderPhotos(); return; }
+    removePhotoFiles(data.delete_paths);
+    showToast('Фото одобрено');
+    renderPhotos();
+  }
+
+  async function photoReject(id){
+    const name = (photoList.find(x => x.id === id) || {}).name || '';
+    const res = await confirmSheet({
+      title: 'Отклонить фото?',
+      text: (name ? name + ' увидит' : 'Человек увидит') + ' причину в приложении и сможет выбрать другое фото.',
+      okText: 'Отклонить', cancelText: 'Не отклонять', danger: true, reasons: PHOTO_REASONS
+    });
+    if(!res) return;
+    const { data, error } = await sb.rpc('admin_photo_reject', { p_photo_id: id, p_reason: res.reason });
+    if(error){ showToast('Не получилось: ' + error.message, 3500); renderPhotos(); return; }
+    removePhotoFiles(data.delete_paths);
+    showToast('Фото отклонено');
+    renderPhotos();
+  }
+
+  async function photoRemove(profileId){
+    const item = photoList.find(x => x.profile_id === profileId);
+    const name = item ? item.name || ''
+      : (currentPerson && currentPerson.profile && currentPerson.profile.id === profileId ? currentPerson.profile.name || '' : '');
+    const res = await confirmSheet({
+      title: 'Удалить фото?',
+      text: (name ? name + ' увидит' : 'Человек увидит') + ' причину в приложении. Вместо фото будет буква.',
+      okText: 'Удалить', cancelText: 'Не удалять', danger: true, reasons: PHOTO_REASONS
+    });
+    if(!res) return;
+    const { data, error } = await sb.rpc('admin_photo_remove', { p_profile: profileId, p_reason: res.reason });
+    if(error){ showToast('Не получилось: ' + error.message, 3500); return; }
+    removePhotoFiles(data.delete_paths);
+    showToast('Фото удалено');
+    if(currentTab === 'photos') renderPhotos();
+    else if(selectedPersonId === profileId) openPerson(profileId);
+  }
+
+  async function setPhotoCheck(on){
+    if(photoSettings && photoSettings.check === on) return;
+    if(!on){
+      const n = photoSettings ? photoSettings.pending : 0;
+      const ok = await confirmSheet({
+        title: 'Выключить проверку фото?',
+        text: 'Новые фото сразу станут видны всем.' + (n ? ' Фото, которые ждут проверки (' + n + '), тоже станут видны.' : ''),
+        okText: 'Выключить', cancelText: 'Не выключать'
+      });
+      if(!ok) return;
+    }
+    const { data, error } = await sb.rpc('admin_photo_set_check', { p_on: on });
+    if(error){ showToast('Не получилось: ' + error.message, 3500); return; }
+    removePhotoFiles(data.delete_paths);
+    photoSettings = { check: data.check, pending: data.pending };
+    showToast(on ? 'Проверка фото включена' : 'Проверка фото выключена');
+    renderPhotos();
+  }
+
+  // Строка «Фото» в карточке человека.
+  function personPhotoText(ph){
+    if(!ph) return '<span class="muted">нет данных</span>';
+    const parts = [];
+    if(ph.approved) parts.push('одобрено ' + esc(fmtDate(ph.approved.at)));
+    if(ph.pending) parts.push('новое ждёт проверки');
+    if(!parts.length) return '<span class="muted">нет</span>';
+    const id = currentPerson && currentPerson.profile ? currentPerson.profile.id : '';
+    return parts.join(' · ') + ` · <button class="link-inline" onclick="photoRemove('${esc(id)}')">Удалить…</button>`;
+  }
+
   // ---------- администраторы ----------
   async function renderAdmins(){
     $('tab-body').innerHTML = `<div class="card"><h2>Администраторы</h2><div id="adm-list" class="muted small">Загружаем…</div>
@@ -1063,7 +1258,9 @@
   // Окно снизу экрана (на компьютере — по центру), как в приложении.
   // reason: true — в окне поле «Причина», без него основная кнопка бледная.
   // Возвращает false, если передумали, или { reason } при согласии.
-  function confirmSheet({ title, text, okText, cancelText, danger, reason }){
+  // reasons — список готовых причин (плашки); последняя «Другая причина…»
+  // открывает поле. Без выбранной причины главная кнопка бледная.
+  function confirmSheet({ title, text, okText, cancelText, danger, reason, reasons }){
     return new Promise(resolve => {
       const wrap = document.createElement('div');
       wrap.className = 'confirm-overlay';
@@ -1073,14 +1270,30 @@
           <p class="confirm-text">${esc(text)}</p>
           ${reason ? `<label for="confirm-reason">Причина (видят только админы)</label>
             <textarea id="confirm-reason" placeholder="Коротко, что случилось"></textarea>` : ''}
+          ${reasons ? `<label>Причина</label>
+            <div class="reasons">${reasons.map((r, i) => `<button class="chip" data-reason="${i}">${esc(r)}</button>`).join('')}
+              <button class="chip" data-reason="other">Другая причина…</button></div>
+            <textarea id="confirm-other" placeholder="Коротко, что не так" hidden></textarea>` : ''}
           <div class="btn-stack">
-            <button class="${danger ? 'btn-danger' : 'btn-primary'}" data-act="ok" ${reason ? 'disabled' : ''}>${esc(okText)}</button>
+            <button class="${danger ? 'btn-danger' : 'btn-primary'}" data-act="ok" ${reason || reasons ? 'disabled' : ''}>${esc(okText)}</button>
             <button class="btn-call confirm-no" data-act="no">${esc(cancelText)}</button>
           </div>
         </div>`;
       const field = wrap.querySelector('#confirm-reason');
       const okBtn = wrap.querySelector('[data-act="ok"]');
       if(field) field.addEventListener('input', () => { okBtn.disabled = !field.value.trim(); });
+      // Выбор причины из списка.
+      let picked = null;
+      const other = wrap.querySelector('#confirm-other');
+      const pickedText = () => picked === 'other' ? other.value.trim() : (picked != null ? reasons[picked] : '');
+      if(other) other.addEventListener('input', () => { okBtn.disabled = !pickedText(); });
+      wrap.querySelectorAll('[data-reason]').forEach(b => b.addEventListener('click', () => {
+        picked = b.dataset.reason === 'other' ? 'other' : Number(b.dataset.reason);
+        wrap.querySelectorAll('[data-reason]').forEach(x => x.classList.toggle('on', x === b));
+        other.hidden = picked !== 'other';
+        if(picked === 'other') other.focus();
+        okBtn.disabled = !pickedText();
+      }));
       function close(result){
         wrap.classList.remove('open');
         setTimeout(() => wrap.remove(), 200);
@@ -1090,7 +1303,7 @@
       function onKey(e){ if(e.key === 'Escape') close(false); }
       wrap.addEventListener('click', e => {
         const act = e.target.closest('[data-act]');
-        if(act && !act.disabled) close(act.dataset.act === 'ok' ? { reason: field ? field.value.trim() : '' } : false);
+        if(act && !act.disabled) close(act.dataset.act === 'ok' ? { reason: reasons ? pickedText() : (field ? field.value.trim() : '') } : false);
         else if(e.target === wrap) close(false);
       });
       document.addEventListener('keydown', onKey);
@@ -1138,7 +1351,8 @@
   }
   [
     'doLogin', 'doForgot', 'doRecoverySave', 'doChangePassword', 'doSearch',
-    'doBan', 'doUnban', 'adminCancelOrder', 'adminCompleteOrder'
+    'doBan', 'doUnban', 'adminCancelOrder', 'adminCompleteOrder',
+    'photoApprove', 'photoReject', 'photoRemove', 'setPhotoCheck'
   ].forEach(name => {
     if(typeof window[name] === 'function') window[name] = busyAction(window[name]);
     else console.warn('busyAction: нет функции', name);
