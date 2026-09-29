@@ -883,7 +883,7 @@
   }
   .crop-title{ text-align: center; font-weight: 700; font-size: var(--fs-m); color: var(--text); }
   .crop-area{ flex: 1; position: relative; overflow: hidden; margin: 16px -20px; touch-action: none; cursor: grab; }
-  .crop-area img{
+  .crop-area .crop-src{
     position: absolute; left: 0; top: 0; max-width: none; transform-origin: 0 0;
     user-select: none; -webkit-user-select: none; -webkit-user-drag: none; pointer-events: none;
   }
@@ -3676,13 +3676,77 @@ void main(){
   // ---------- фото профиля ----------
   // Круг с фото; пока фото нет — с первой буквой имени. Берём только https-
   // ссылки. Если картинка не загрузилась, убираем её — остаётся буква.
+  // Круг с фото. Сама картинка сюда не пишется: её ставит склад фото
+  // (ниже) — уже скачанную и готовую к показу. Пока фото не готово или не
+  // скачалось — видна первая буква имени.
   function avatarHtml(name, url, size){
     const letter = (String(name || '').trim()[0] || '?').toUpperCase();
     const style = size ? ` style="--av:${size}px"` : '';
-    const img = url && /^https:\/\//.test(url)
-      ? `<img src="${escAttr(url)}" alt="" loading="lazy" onerror="this.remove()">` : '';
-    return `<span class="avatar" aria-hidden="true"${style}>${esc(letter)}${img}</span>`;
+    const ok = url && /^https:\/\//.test(url);
+    if(ok) warmPhoto(url);
+    return `<span class="avatar" aria-hidden="true"${style}${ok ? ` data-photo="${escAttr(url)}"` : ''}>${esc(letter)}</span>`;
   }
+
+  // ---------- склад фото ----------
+  // Как в «настоящих» приложениях: фото один раз скачиваем и готовим к показу,
+  // а при каждой перерисовке экрана ставим в круг ту же самую готовую
+  // картинку, а не создаём новую. Новая картинка на кадр пустая — отсюда было
+  // мерцание буквы при обновлении ленты (особенно в Safari).
+  // photoStore: ссылка -> { ready, failed, pool: [картинки] }. Одна картинка
+  // может стоять только в одном месте, поэтому если одно фото на экране
+  // дважды — на складе два экземпляра.
+  const photoStore = new Map();
+
+  function warmPhoto(url){
+    if(!url || photoStore.has(url)) return;
+    const entry = { ready: false, failed: false, pool: [] };
+    photoStore.set(url, entry);
+    const img = new Image();
+    img.decoding = 'sync';
+    img.alt = '';
+    img.src = url;
+    entry.pool.push(img);
+    const done = img.decode ? img.decode() : new Promise((ok, fail) => { img.onload = ok; img.onerror = fail; });
+    done.then(() => { entry.ready = true; fillPhotos(); })
+        .catch(() => {
+          // Не скачалось (нет сети, фото удалили) — остаётся буква. Через
+          // минуту можно попробовать снова: убираем запись со склада.
+          entry.failed = true;
+          setTimeout(() => { if(photoStore.get(url) === entry) photoStore.delete(url); }, 60000);
+        });
+  }
+
+  // Ставит готовые фото во все круги на экране, где их ещё нет.
+  function fillPhotos(){
+    document.querySelectorAll('.avatar[data-photo]').forEach(span => {
+      const url = span.dataset.photo;
+      const cur = span.querySelector('img');
+      if(cur) return;
+      const entry = photoStore.get(url);
+      if(!entry){ warmPhoto(url); return; }
+      if(!entry.ready) return;
+      let img = entry.pool.find(x => !x.isConnected);
+      if(!img){
+        img = entry.pool[0].cloneNode();
+        img.decoding = 'sync';
+        entry.pool.push(img);
+      }
+      span.appendChild(img);
+    });
+  }
+
+  // Любая перерисовка (лента, предложения, меню, профиль, история) — сразу,
+  // ещё до того как экран нарисуется, ставим фото обратно.
+  new MutationObserver(muts => {
+    for(const m of muts){
+      for(const n of m.addedNodes){
+        if(n.nodeType === 1 && (n.matches('.avatar[data-photo]') || n.querySelector('.avatar[data-photo]'))){
+          fillPhotos();
+          return;
+        }
+      }
+    }
+  }).observe(document.body, { childList: true, subtree: true });
 
   function driverAvatar(id){
     const p = driverProfiles[id];
@@ -3833,9 +3897,25 @@ void main(){
     if(!file) return;
     const url = URL.createObjectURL(file);
     const img = new Image();
-    img.onload = () => openCrop(img, url);
+    img.onload = () => openCrop(shrinkForCrop(img), url);
     img.onerror = () => { URL.revokeObjectURL(url); showToast('Не удалось открыть фото. Выберите другое', 3000); };
     img.src = url;
+  }
+
+  // Снимки с камер на 50–200 мегапикселей слабому телефону тяжело двигать
+  // и обрезать. Больше 2000 точек по большей стороне — уменьшаем сразу:
+  // для круга 512×512 этого с запасом.
+  function shrinkForCrop(img){
+    const MAX = 2000;
+    const w = img.naturalWidth, h = img.naturalHeight;
+    if(Math.max(w, h) <= MAX) return img;
+    const k = MAX / Math.max(w, h);
+    const c = document.createElement('canvas');
+    c.width = Math.round(w * k); c.height = Math.round(h * k);
+    const ctx = c.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(img, 0, 0, c.width, c.height);
+    return c;
   }
 
   // ---------- обрезка ----------
@@ -3857,6 +3937,7 @@ void main(){
       </div>`;
     document.body.appendChild(wrap);
     img.draggable = false;
+    img.classList.add('crop-src');
     const area = wrap.querySelector('#crop-area');
     area.insertBefore(img, area.firstChild);
 
@@ -3864,7 +3945,7 @@ void main(){
     const d = Math.max(120, Math.min(rect.width - 40, rect.height - 40, 320));
     const ring = wrap.querySelector('#crop-ring');
     ring.style.width = ring.style.height = d + 'px';
-    const nw = img.naturalWidth, nh = img.naturalHeight;
+    const nw = img.naturalWidth || img.width, nh = img.naturalHeight || img.height;   // картинка или уменьшенная копия
     const min = d / Math.min(nw, nh);
     crop = { img, url, area, d, nw, nh, min, max: min * 5, scale: min, x: 0, y: 0, pointers: new Map(), start: null };
     cropApply();
