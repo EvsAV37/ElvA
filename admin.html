@@ -249,6 +249,22 @@
   .reasons{ display: flex; flex-direction: column; gap: 8px; }
   .reasons .chip{ text-align: left; width: 100%; }
 
+  /* Админы: карточки, ссылка-приглашение, метка сборки. */
+  .adm-item{ display: flex; flex-direction: column; gap: 12px; }
+  .adm-head{ display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
+  .adm-name{ font-weight: 700; font-size: var(--fs-m); }
+  .tag.gray{ color: var(--muted); }
+  .tag.warn{ color: #f2b45b; }
+  .link-box{
+    font-family: ui-monospace, Menlo, monospace; font-size: 13px; line-height: 1.4; word-break: break-all;
+    background: var(--surface-2); border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+    color: var(--text); user-select: all; -webkit-user-select: all;
+  }
+  .role-desc{ font-size: var(--fs-s); color: var(--muted); line-height: 1.5; margin-top: 8px; }
+  .build{ text-align: center; font-size: var(--fs-xs); color: var(--muted); margin-top: 16px; }
+  .welcome-text{ margin: 0 0 4px; line-height: 1.5; }
+  .welcome-mail{ font-weight: 700; color: var(--ice); }
+
   /* Окно подтверждения снизу — как в приложении. На компьютере — по центру. */
   .confirm-overlay{
     position: fixed; inset: 0; z-index: 80;
@@ -355,14 +371,16 @@
 
   <!-- ===== Новый пароль по ссылке из письма ===== -->
   <section id="screen-recovery" hidden>
-    <h1><span class="brand" data-cfg="appName">ElvA</span> · новый пароль</h1>
+    <h1><span class="brand" data-cfg="appName">ElvA</span> · <span id="r-title">новый пароль</span></h1>
     <div class="card">
-      <label for="r-pass">Новый пароль</label>
+      <div id="r-welcome" hidden></div>
+      <label for="r-pass" id="r-label">Новый пароль</label>
       <input id="r-pass" type="password" autocomplete="new-password">
       <label for="r-pass2">Ещё раз</label>
       <input id="r-pass2" type="password" autocomplete="new-password">
+      <div class="note plain" id="r-note" hidden></div>
       <div class="msg" id="r-msg"></div>
-      <button class="btn-primary" onclick="doRecoverySave()">Сохранить</button>
+      <button class="btn-primary" id="r-btn" onclick="doRecoverySave()">Сохранить</button>
     </div>
   </section>
 
@@ -403,9 +421,15 @@
     auth: { storageKey: 'elva-admin-auth', persistSession: true, detectSessionInUrl: true }
   });
 
-  let me = { email: '' };
-  // Открыли по ссылке из письма «сбросить пароль» — в адресе будет type=recovery.
-  let recoveryMode = /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
+  // Метка сборки: меняется при каждой выкладке — по ней видно, какая версия открыта.
+  const BUILD = '08.10-1';
+
+  // role: 'main' — главный, 'disp' — диспетчер.
+  let me = { email: '', role: '', name: '' };
+  // Открыли по ссылке «новый пароль» — в адресе будет type=recovery;
+  // по ссылке-приглашению — type=invite (новый админ придумывает пароль).
+  let inviteMode = /type=invite/.test(location.hash) || /type=invite/.test(location.search);
+  let recoveryMode = inviteMode || /type=recovery/.test(location.hash) || /type=recovery/.test(location.search);
 
   // ---------- мелочи ----------
   const $ = id => document.getElementById(id);
@@ -467,15 +491,17 @@
     if(p1 !== p2){ msg('r-msg', 'Пароли не совпадают.', 'error'); return; }
     const { error } = await sb.auth.updateUser({ password: p1 });
     if(error){ msg('r-msg', authError(error), 'error'); return; }
+    const wasInvite = inviteMode;
     recoveryMode = false;
+    inviteMode = false;
     history.replaceState(null, '', location.pathname);
-    try { await sb.rpc('admin_note_password_changed'); } catch(e){}
+    if(!wasInvite){ try { await sb.rpc('admin_note_password_changed'); } catch(e){} }
     await enterPanel(true);
   }
 
   async function doLogout(){
     await sb.auth.signOut();
-    me = { email: '' };
+    me = { email: '', role: '', name: '' };
     show('screen-login');
     msg('l-msg', '');
   }
@@ -484,7 +510,7 @@
   // logLogin — записать вход в журнал (только после ввода пароля, а не при
   // каждом открытии страницы с сохранённым входом).
   async function enterPanel(logLogin){
-    const { data, error } = await sb.rpc('admin_whoami', { p_log: !!logLogin });
+    const { data, error } = await sb.rpc('admin_me', { p_log: !!logLogin });
     const row = data && data[0];
     if(error || !row || !row.is_admin){
       await sb.auth.signOut();
@@ -493,8 +519,11 @@
                          : 'У этой учётной записи нет прав администратора.', 'error');
       return;
     }
-    me = { email: row.email };
-    $('who').innerHTML = '<span>' + esc(me.email) + '</span><button class="link" onclick="doLogout()">Выйти</button>';
+    me = { email: row.email, role: row.role || 'disp', name: row.name || '' };
+    $('who').innerHTML = '<span>' + esc(me.email) + ' · ' + (isMain() ? 'главный' : 'диспетчер')
+      + '</span><button class="link" onclick="doLogout()">Выйти</button>';
+    if(!visibleTabs().some(t => t.id === currentTab)) currentTab = 'people';
+    await loadMeId();
     show('screen-panel');
     renderTabs();
     openTab(currentTab);
@@ -508,23 +537,26 @@
     { id: 'orders',  title: 'Заказы', render: renderOrders },
     { id: 'photos',  title: 'Фото',   render: renderPhotos },
     { id: 'stats',   title: 'Цифры',  render: renderStats },
-    { id: 'log',     title: 'Журнал', render: renderLog },
-    { id: 'admins',  title: 'Админы', render: renderAdmins },
+    { id: 'log',     title: 'Журнал', render: renderLog,    main: true },
+    { id: 'admins',  title: 'Админы', render: renderAdmins, main: true },
     { id: 'account', title: 'Пароль', render: renderAccount }
   ];
   let currentTab = 'people';
+  const isMain = () => me.role === 'main';
+  // Журнал и Админы — только главному (база всё равно не отдаст их диспетчеру).
+  const visibleTabs = () => TABS.filter(t => !t.main || isMain());
 
   function renderTabs(){
-    $('tabs').innerHTML = TABS.map(t =>
+    $('tabs').innerHTML = visibleTabs().map(t =>
       `<button class="tab ${t.id === currentTab ? 'active' : ''}" onclick="openTab('${t.id}')">${t.title}${
         t.id === 'photos' && photoSettings && photoSettings.check && photoSettings.pending
           ? `<span class="count">${photoSettings.pending}</span>` : ''}</button>`).join('');
   }
   function openTab(id){
-    currentTab = id;
+    const tab = visibleTabs().find(t => t.id === id) || TABS[0];
+    currentTab = tab.id;
     clearInterval(ordersTimer);
     renderTabs();
-    const tab = TABS.find(t => t.id === id) || TABS[0];
     $('tab-body').innerHTML = '';
     tab.render();
   }
@@ -545,7 +577,14 @@
     photo_reject: 'Отклонил фото',
     photo_remove: 'Удалил фото',
     photo_check_on: 'Включил проверку фото',
-    photo_check_off: 'Выключил проверку фото'
+    photo_check_off: 'Выключил проверку фото',
+    admin_invite: 'Пригласил админа',
+    admin_invite_link: 'Новая ссылка-приглашение',
+    admin_invite_resend: 'Письмо-приглашение заново',
+    admin_cancel_invite: 'Отменил приглашение',
+    admin_remove: 'Убрал админа',
+    admin_role: 'Сменил роль админа',
+    admin_password_link: 'Ссылка для нового пароля'
   };
   let logLastId = null;
 
@@ -569,7 +608,8 @@
         <div class="row-sub">${esc(fmtTime(r.created_at))} · ${esc(r.admin_email || '—')}${
           r.action === 'ban' && r.details ? ' · ' + esc(banKind(r.details.scope)) + ', ' + esc(banUntil(r.details.until)) : ''}${
           r.details && r.details.reason ? ' · причина: ' + esc(r.details.reason) : ''}${
-          r.action === 'photo_check_off' && r.details && r.details.approved ? ' · сразу одобрено: ' + esc(r.details.approved) : ''}</div>
+          r.action === 'photo_check_off' && r.details && r.details.approved ? ' · сразу одобрено: ' + esc(r.details.approved) : ''}${
+          r.details && r.details.role && /^admin_(invite|role)$/.test(r.action) ? ' · ' + (r.details.role === 'main' ? 'главный' : 'диспетчер') : ''}</div>
       </div>`).join(''));
     if(data.length) logLastId = data[data.length - 1].id;
     $('log-more').hidden = data.length < 50;
@@ -1084,14 +1124,15 @@
     photoList = list || [];
     $('tab-body').innerHTML = `
       <div class="card">
-        <h2>Проверка фото</h2>
+        ${photoSettings && photoSettings.can_toggle ? `<h2>Проверка фото</h2>
         <div class="chips">
           <button class="chip ${on ? 'on' : ''}" onclick="setPhotoCheck(true)">Включена</button>
           <button class="chip ${on ? '' : 'on'}" onclick="setPhotoCheck(false)">Выключена</button>
-        </div>
+        </div>` : `<h2>Проверка фото: ${on ? 'включена' : 'выключена'}</h2>`}
         <div class="note plain">${on
           ? 'Новое фото видит только его владелец, пока вы его не одобрите. Остальные видят букву или прежнее фото.'
-          : 'Новые фото сразу видны всем. Неподходящее можно удалить здесь или в карточке человека.'}</div>
+          : 'Новые фото сразу видны всем. Неподходящее можно удалить здесь или в карточке человека.'}${
+          photoSettings && !photoSettings.can_toggle ? ' Включает и выключает проверку главный админ.' : ''}</div>
       </div>
       <div class="card">
         <div class="orders-head"><h2>${on ? 'Ждут проверки' + (list && list.length ? ' · ' + list.length : '') : 'Новые фото за 7 дней'}</h2>
@@ -1196,25 +1237,285 @@
   }
 
   // ---------- администраторы ----------
+  // Только главный. Пригласить, сменить роль, ссылка для нового пароля,
+  // убрать. Вход создаёт и удаляет серверная функция admin-invite (там главный
+  // ключ), роль меняет база (admin_set_role). Всё пишется в журнал.
+  let adminList = [];
+  const PAGE_URL = () => location.origin + location.pathname;
+  const ROLE_DESC = {
+    disp: 'Люди, заказы, фото, блокировки и цифры. Не видит журнал и не управляет админами.',
+    main: 'Всё, в том числе приглашать и убирать админов, журнал и проверка фото.'
+  };
+
   async function renderAdmins(){
-    $('tab-body').innerHTML = `<div class="card"><h2>Администраторы</h2><div id="adm-list" class="muted small">Загружаем…</div>
-      <div class="note">
-        Добавить администратора пока можно через Supabase:<br>
-        1) Authentication → Users → Add user: почта, пароль, «Auto Confirm User».<br>
-        2) SQL Editor: <code>insert into public.admins (user_id, email) select id, email from auth.users where email = 'почта';</code><br>
-        Убрать: <code>delete from public.admins where email = 'почта';</code><br>
-        Кнопки для этого прямо здесь появятся отдельной доработкой.
-      </div></div>`;
-    const { data, error } = await sb.rpc('admin_list_admins');
-    const list = $('adm-list');
-    if(error){ list.textContent = 'Ошибка: ' + error.message; return; }
-    list.classList.remove('muted', 'small');
-    list.classList.add('rows');
-    list.innerHTML = data.map(a => `
-      <div class="row">
-        <div class="row-main">${esc(a.email)}${a.email === me.email ? ' <span class="muted small">(это вы)</span>' : ''}</div>
-        <div class="row-sub">Админ с ${esc(fmtTime(a.created_at))} · последний вход ${esc(fmtTime(a.last_sign_in_at))}</div>
-      </div>`).join('');
+    $('tab-body').innerHTML = `<div class="card"><div class="msg muted">Загружаем…</div></div>`;
+    const { data, error } = await sb.rpc('admin_admins');
+    if(currentTab !== 'admins') return;
+    adminList = error ? [] : data;
+    const item = a => {
+      const self = a.user_id === meId;
+      const name = a.name || a.email.split('@')[0];
+      return `
+      <div class="order adm-item">
+        <div>
+          <div class="adm-head"><span class="adm-name">${esc(name)}</span>${
+            a.role === 'main' ? '<span class="tag">главный</span>' : '<span class="tag gray">диспетчер</span>'}${
+            a.invited ? '<span class="tag warn">приглашён</span>' : ''}${self ? ' <span class="muted small">это вы</span>' : ''}</div>
+          <div class="row-sub">${esc(a.email)}</div>
+          <div class="row-sub">${a.invited
+            ? 'Ещё не входил' + (a.invited_at ? ' · ссылка выдана ' + esc(fmtTime(a.invited_at)) : '')
+            : 'Последний вход: ' + esc(fmtTime(a.last_sign_in_at))}</div>
+        </div>
+        ${self ? '' : a.invited ? `
+          <div class="btn-stack">
+            <button class="btn-call" onclick="adminInviteLink('${a.user_id}')">Новая ссылка</button>
+            <button class="btn-call" onclick="adminResend('${a.user_id}')">Отправить письмом</button>
+            <button class="btn-ghost" onclick="adminCancel('${a.user_id}')">Отменить приглашение</button>
+          </div>` : `
+          <div class="btn-stack">
+            <button class="btn-call" onclick="adminRole('${a.user_id}')">Сменить роль…</button>
+            <button class="btn-call" onclick="adminPasswordLink('${a.user_id}')">Ссылка для нового пароля</button>
+            <button class="btn-ghost" onclick="adminRemove('${a.user_id}')">Убрать из админов…</button>
+          </div>`}
+      </div>`;
+    };
+    $('tab-body').innerHTML = `
+      <div class="card">
+        <div class="orders-head"><h2>Администраторы${adminList.length ? ' · ' + adminList.length : ''}</h2>
+          <button class="link" onclick="renderAdmins()">Обновить</button></div>
+        <button class="btn-primary" onclick="openInvite()">Пригласить админа</button>
+        ${error ? `<div class="msg error">Ошибка: ${esc(error.message)}</div>`
+          : `<div class="orders-list">${adminList.map(item).join('')}</div>`}
+        <div class="note">Главный может всё, в том числе приглашать админов и включать проверку фото. Диспетчер — люди, заказы, фото, блокировки и цифры.</div>
+      </div>`;
+  }
+
+  // id своего входа — чтобы не показывать кнопки у себя.
+  let meId = null;
+  async function loadMeId(){
+    const { data } = await sb.auth.getUser();
+    meId = data && data.user ? data.user.id : null;
+  }
+
+  const adminById = id => adminList.find(a => a.user_id === id) || {};
+  const adminName = a => a.name || (a.email || '').split('@')[0];
+
+  // Ошибки функции admin-invite — по-русски.
+  function inviteError(e){
+    const m = String((e && e.message) || e || '');
+    if(/already admin/.test(m)) return 'Эта почта уже есть среди админов.';
+    if(/already.*registered|already been registered/i.test(m)) return 'На эту почту уже заведён вход. Напишите в поддержку Supabase или возьмите другую почту.';
+    if(/bad email/.test(m)) return 'Проверьте почту — похоже, в ней ошибка.';
+    if(/not authorized|rate limit|sending|smtp|email/i.test(m)) return 'Письмо отправить не удалось: встроенная почта Supabase шлёт только на адреса участников проекта. Возьмите «Получить ссылку».';
+    if(/last main/.test(m)) return 'Нельзя: должен остаться хотя бы один главный админ.';
+    if(/main admin only/.test(m)) return 'Это может только главный админ.';
+    if(/already joined/.test(m)) return 'Человек уже вошёл по приглашению.';
+    return 'Не получилось: ' + m;
+  }
+
+  async function callInvite(body){
+    const { data, error } = await sb.functions.invoke('admin-invite', { body: Object.assign({ redirect: PAGE_URL() }, body) });
+    if(error){
+      // Ответ функции с ошибкой — в теле.
+      let text = error.message;
+      try { const j = await error.context.json(); if(j && j.error) text = j.error; } catch(e){}
+      throw new Error(text);
+    }
+    if(!data || !data.ok) throw new Error(data && data.error || 'неизвестная ошибка');
+    return data;
+  }
+
+  // Своё окно снизу (как окно подтверждения), с любым содержимым.
+  function openSheet(html){
+    const wrap = document.createElement('div');
+    wrap.className = 'confirm-overlay';
+    wrap.innerHTML = `<div class="confirm-sheet" role="dialog" aria-modal="true">${html}</div>`;
+    function close(){
+      wrap.classList.remove('open');
+      setTimeout(() => wrap.remove(), 200);
+      document.removeEventListener('keydown', onKey);
+    }
+    function onKey(e){ if(e.key === 'Escape') close(); }
+    wrap.addEventListener('click', e => {
+      if(e.target === wrap || e.target.closest('[data-close]')) close();
+    });
+    document.addEventListener('keydown', onKey);
+    document.body.appendChild(wrap);
+    void wrap.offsetWidth;
+    wrap.classList.add('open');
+    return { el: wrap, close };
+  }
+
+  function openInvite(){
+    let role = 'disp';
+    const sh = openSheet(`
+      <div class="confirm-title">Пригласить админа</div>
+      <label for="inv-email">Почта</label>
+      <input id="inv-email" type="email" inputmode="email" autocomplete="off" placeholder="name@mail.ru">
+      <label for="inv-name">Имя (видно в списке и журнале)</label>
+      <input id="inv-name" maxlength="60" autocomplete="off" placeholder="Например: Ирина">
+      <label>Роль</label>
+      <div class="chips"><button class="chip on" data-role="disp">Диспетчер</button><button class="chip" data-role="main">Главный</button></div>
+      <div class="role-desc" id="inv-desc">${ROLE_DESC.disp}</div>
+      <div class="msg" id="inv-msg"></div>
+      <div class="btn-stack">
+        <button class="btn-primary" id="inv-link">Получить ссылку</button>
+        <button class="btn-call" id="inv-mail">Отправить письмом</button>
+        <button class="btn-ghost" data-close>Отмена</button>
+      </div>`);
+    const q = sel => sh.el.querySelector(sel);
+    sh.el.querySelectorAll('[data-role]').forEach(b => b.addEventListener('click', () => {
+      role = b.dataset.role;
+      sh.el.querySelectorAll('[data-role]').forEach(x => x.classList.toggle('on', x === b));
+      q('#inv-desc').textContent = ROLE_DESC[role];
+    }));
+    async function go(mode, btn){
+      const email = q('#inv-email').value.trim();
+      const name = q('#inv-name').value.trim();
+      if(!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ msg('inv-msg', 'Впишите почту.', 'error'); return; }
+      if(btn.dataset.busy) return;
+      btn.dataset.busy = '1';
+      msg('inv-msg', mode === 'link' ? 'Создаём ссылку…' : 'Отправляем письмо…');
+      try {
+        const res = await callInvite({ action: 'invite', email, name, role, mode });
+        sh.close();
+        if(mode === 'link') showLink('Приглашение готово', email, name, res.link, 'invite');
+        else showToast('Письмо отправлено на ' + email, 3500);
+        renderAdmins();
+      } catch(e){
+        msg('inv-msg', inviteError(e), 'error');
+      } finally {
+        delete btn.dataset.busy;
+      }
+    }
+    q('#inv-link').addEventListener('click', e => go('link', e.currentTarget));
+    q('#inv-mail').addEventListener('click', e => go('email', e.currentTarget));
+    setTimeout(() => q('#inv-email').focus(), 250);
+  }
+
+  // Окно со ссылкой: скопировать и переслать человеку.
+  function showLink(title, email, name, link, kind){
+    const who = name || email;
+    const sh = openSheet(`
+      <div class="confirm-title">${esc(title)}</div>
+      <p class="confirm-text">${kind === 'invite'
+        ? `Перешлите эту ссылку сами, например в мессенджере. По ней ${esc(who)} придумает пароль и войдёт в панель.`
+        : `Перешлите эту ссылку сами, например в мессенджере. По ней ${esc(who)} задаст новый пароль.`}</p>
+      <div class="link-box" id="lnk">${esc(link)}</div>
+      <p class="confirm-text">Ссылка срабатывает один раз и действует ограниченное время. Не пересылайте её никому другому: по ней входят в панель.</p>
+      <div class="btn-stack">
+        <button class="btn-primary" id="lnk-copy">Скопировать ссылку</button>
+        <button class="btn-call" data-close>Готово</button>
+      </div>`);
+    sh.el.querySelector('#lnk-copy').addEventListener('click', async e => {
+      const ok = await copyText(link);
+      e.currentTarget.textContent = ok ? 'Скопировано' : 'Выделите ссылку и скопируйте';
+    });
+  }
+
+  async function copyText(text){
+    try { await navigator.clipboard.writeText(text); return true; } catch(e){}
+    try {
+      const t = document.createElement('textarea');
+      t.value = text; t.setAttribute('readonly', ''); t.style.position = 'fixed'; t.style.opacity = '0';
+      document.body.appendChild(t); t.select(); t.setSelectionRange(0, text.length);
+      const ok = document.execCommand('copy'); t.remove(); return ok;
+    } catch(e){ return false; }
+  }
+
+  async function adminInviteLink(id){
+    const a = adminById(id);
+    const ok = await confirmSheet({
+      title: 'Новая ссылка-приглашение?',
+      text: 'Прежняя ссылка и письмо-приглашение перестанут работать.',
+      okText: 'Получить ссылку', cancelText: 'Не надо'
+    });
+    if(!ok) return;
+    try {
+      const res = await callInvite({ action: 'link', user_id: id });
+      showLink('Новая ссылка', a.email, adminName(a), res.link, 'invite');
+      renderAdmins();
+    } catch(e){ showToast(inviteError(e), 4000); }
+  }
+
+  async function adminResend(id){
+    const a = adminById(id);
+    const ok = await confirmSheet({
+      title: 'Отправить приглашение письмом?',
+      text: 'Письмо уйдёт на ' + a.email + '. Скопированная раньше ссылка перестанет работать.',
+      okText: 'Отправить', cancelText: 'Не надо'
+    });
+    if(!ok) return;
+    try {
+      await callInvite({ action: 'resend', user_id: id });
+      showToast('Письмо отправлено на ' + a.email, 3500);
+      renderAdmins();
+    } catch(e){ showToast(inviteError(e), 5000); }
+  }
+
+  async function adminCancel(id){
+    const a = adminById(id);
+    const ok = await confirmSheet({
+      title: 'Отменить приглашение?',
+      text: 'Ссылка для ' + adminName(a) + ' перестанет работать.',
+      okText: 'Отменить приглашение', cancelText: 'Оставить', danger: true
+    });
+    if(!ok) return;
+    try {
+      await callInvite({ action: 'cancel', user_id: id });
+      showToast('Приглашение отменено');
+      renderAdmins();
+    } catch(e){ showToast(inviteError(e), 4000); }
+  }
+
+  async function adminPasswordLink(id){
+    const a = adminById(id);
+    try {
+      const res = await callInvite({ action: 'recovery', user_id: id });
+      showLink('Ссылка для нового пароля', a.email, adminName(a), res.link, 'recovery');
+    } catch(e){ showToast(inviteError(e), 4000); }
+  }
+
+  async function adminRemove(id){
+    const a = adminById(id);
+    const ok = await confirmSheet({
+      title: 'Убрать ' + adminName(a) + ' из админов?',
+      text: 'Вход в панель для ' + a.email + ' будет удалён. Записи в журнале останутся.',
+      okText: 'Убрать', cancelText: 'Не убирать', danger: true
+    });
+    if(!ok) return;
+    try {
+      await callInvite({ action: 'remove', user_id: id });
+      showToast('Убран из админов');
+      renderAdmins();
+    } catch(e){ showToast(inviteError(e), 4000); }
+  }
+
+  function adminRole(id){
+    const a = adminById(id);
+    let role = a.role;
+    const sh = openSheet(`
+      <div class="confirm-title">Роль: ${esc(adminName(a))}</div>
+      <div class="chips"><button class="chip ${role === 'disp' ? 'on' : ''}" data-role="disp">Диспетчер</button><button class="chip ${role === 'main' ? 'on' : ''}" data-role="main">Главный</button></div>
+      <div class="role-desc" id="role-desc">${ROLE_DESC[role]}</div>
+      <div class="msg" id="role-msg"></div>
+      <div class="btn-stack">
+        <button class="btn-primary" id="role-save">Сохранить</button>
+        <button class="btn-call" data-close>Отмена</button>
+      </div>`);
+    sh.el.querySelectorAll('[data-role]').forEach(b => b.addEventListener('click', () => {
+      role = b.dataset.role;
+      sh.el.querySelectorAll('[data-role]').forEach(x => x.classList.toggle('on', x === b));
+      sh.el.querySelector('#role-desc').textContent = ROLE_DESC[role];
+    }));
+    sh.el.querySelector('#role-save').addEventListener('click', async () => {
+      if(role === a.role){ sh.close(); return; }
+      const { error } = await sb.rpc('admin_set_role', { p_user: id, p_role: role });
+      if(error){ msg('role-msg', inviteError(error), 'error'); return; }
+      sh.close();
+      showToast(role === 'main' ? 'Теперь главный' : 'Теперь диспетчер');
+      renderAdmins();
+    });
   }
 
   // ---------- смена пароля ----------
@@ -1229,7 +1530,8 @@
       <div class="msg" id="a-msg"></div>
       <button class="btn-primary" id="a-btn" onclick="doChangePassword()">Сменить пароль</button>
       <div class="note">Не короче ${MIN_PASSWORD} символов. Удобно взять 3–4 случайных слова, например «лёд-сова-мост-47».</div>
-    </div>`;
+    </div>
+    <div class="build">${esc(CFG.appName)} · панель · сборка ${esc(BUILD)}</div>`;
   }
 
   async function doChangePassword(){
@@ -1352,7 +1654,8 @@
   [
     'doLogin', 'doForgot', 'doRecoverySave', 'doChangePassword', 'doSearch',
     'doBan', 'doUnban', 'adminCancelOrder', 'adminCompleteOrder',
-    'photoApprove', 'photoReject', 'photoRemove', 'setPhotoCheck'
+    'photoApprove', 'photoReject', 'photoRemove', 'setPhotoCheck',
+    'adminInviteLink', 'adminResend', 'adminCancel', 'adminPasswordLink', 'adminRemove'
   ].forEach(name => {
     if(typeof window[name] === 'function') window[name] = busyAction(window[name]);
     else console.warn('busyAction: нет функции', name);
@@ -1361,6 +1664,32 @@
   // Enter в полях входа = «Войти».
   for(const id of ['l-email', 'l-pass']){
     $(id).addEventListener('keydown', e => { if(e.key === 'Enter') doLogin(); });
+  }
+
+  // Приглашённый открыл ссылку: Supabase уже впустил его по ней. Узнаём
+  // почту и роль и просим придумать пароль — без него в следующий раз не войти.
+  async function showWelcome(){
+    $('r-title').textContent = 'вход в панель';
+    $('r-label').textContent = 'Придумайте пароль';
+    $('r-btn').textContent = 'Сохранить и войти';
+    const note = $('r-note');
+    note.hidden = false;
+    note.textContent = `Не короче ${MIN_PASSWORD} символов. Удобно взять 3–4 случайных слова, например «лёд-сова-мост-47».`;
+    show('screen-recovery');
+    await sb.auth.getSession();   // дождаться, пока Supabase разберёт ссылку
+    const { data } = await sb.rpc('admin_me', { p_log: false });
+    const row = data && data[0];
+    const w = $('r-welcome');
+    if(!row || !row.is_admin){
+      w.innerHTML = '<p class="welcome-text">Ссылка не сработала: возможно, она устарела или уже использована. Попросите главного админа прислать новую.</p>';
+      w.hidden = false;
+      for(const id of ['r-label', 'r-pass', 'r-pass2', 'r-note', 'r-btn']) $(id).hidden = true;
+      document.querySelector('label[for="r-pass2"]').hidden = true;
+      return;
+    }
+    w.innerHTML = `<p class="welcome-text">Вас пригласили в панель ${esc(CFG.appName)} как <b>${row.role === 'main' ? 'главного админа' : 'диспетчера'}</b>.</p>
+      <p class="welcome-text">Почта для входа: <span class="welcome-mail">${esc(row.email)}</span></p>`;
+    w.hidden = false;
   }
 
   // ---------- запуск ----------
@@ -1379,6 +1708,7 @@
   });
 
   (async () => {
+    if(inviteMode){ await showWelcome(); return; }
     if(recoveryMode){ show('screen-recovery'); return; }
     const { data } = await sb.auth.getSession();
     if(recoveryMode) return;

@@ -3256,6 +3256,9 @@ void main(){
   // поправить ответ = поменять строку. В ответах можно <p> и <b>.
   // Почта поддержки, версия и подпись — в elva-config.js.
   const APP_VERSION = CFG.appVersion;
+  // Метка сборки: меняется при каждой выкладке — по ней видно, какая версия
+  // открыта на телефоне (старую телефон может держать до 10 минут).
+  const BUILD = '08.10-1';
   const SUPPORT_EMAIL = CFG.supportEmail;
 
   const HELP_PUSH_ANSWER = `
@@ -3382,7 +3385,7 @@ void main(){
       </div>
 
       <div class="help-about">
-        ${esc(APP_NAME)}, версия ${esc(APP_VERSION)}<br>
+        ${esc(APP_NAME)}, версия ${esc(APP_VERSION)} · сборка ${esc(BUILD)}<br>
         ${esc(CFG.copyright)}
       </div>
     `;
@@ -3397,7 +3400,7 @@ void main(){
       'Имя: ' + ((myProfile && myProfile.name) || '—'),
       'Номер в ' + APP_NAME + ': ' + ((myProfile && myProfile.phone) || '—'),
       'Роль: ' + role,
-      'Версия: ' + APP_VERSION
+      'Версия: ' + APP_VERSION + ', сборка ' + BUILD
     ];
     window.location.href = 'mailto:' + SUPPORT_EMAIL
       + '?subject=' + encodeURIComponent('Вопрос по ' + APP_NAME)
