@@ -826,12 +826,6 @@
   .plate-sm{ font-size: 14px; }
   .plate-lg{ font-size: 34px; }
 
-  /* ---------- Предложение водителя ----------
-     Слева марка и под ней цвет, справа цена и под ней время подачи. Ниже —
-     водитель с фото. Номера здесь нет: пассажир видит его, только когда
-     выберет водителя. */
-  .ob-head{ display: flex; flex-direction: column; gap: 2px; }
-  .ob-line{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .ob-car{ font-size: var(--fs-m); font-weight: 800; line-height: 1.3; color: var(--text); }
   .ob-color{ font-size: var(--fs-s); font-weight: 500; line-height: 1.3; color: var(--text); }
   .ob-eta{ font-size: var(--fs-m); font-weight: 700; color: var(--text); white-space: nowrap; }
@@ -954,6 +948,79 @@
   .push-card .push-actions button{ flex: 1; margin: 0; }
 
   [hidden]{ display: none !important; }
+
+  /* Форма поездки и карточки предложений */
+  .ride-heading .view-sub{ margin: 6px 0 0; color: #aab3d0; }
+  .ride-heading .view-title{ font-size: clamp(24px, 7vw, 30px); }
+  .ride-compose{ display: grid; gap: 12px; }
+  .ride-route, .ride-fare, .ride-note{
+    background: var(--night);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+  }
+  .ride-route{ position: relative; padding: 0 14px; }
+  .ride-route::before{
+    content: '';
+    position: absolute;
+    left: 27px;
+    top: 41px;
+    bottom: 41px;
+    border-left: 1px dashed var(--ice-dim);
+  }
+  .ride-route .field, .ride-fare, .ride-note{
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+  }
+  .ride-route .field + .field{ border-top: 1px solid var(--line); }
+  .ride-fare, .ride-note{ padding: 0 14px; }
+  .ride-dot, .ride-symbol{
+    position: relative;
+    justify-self: center;
+    color: var(--ice);
+    font-weight: 800;
+  }
+  .ride-dot{
+    width: 13px;
+    height: 13px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: var(--night);
+  }
+  .ride-dot.destination{ border-radius: 4px; color: var(--amber); }
+  .ride-symbol.fare{ font-size: 24px; color: var(--amber); }
+  .ride-entry{ padding-top: 10px; }
+  .ride-entry label{ color: #b9c3df; font-size: 12px; margin: 0; }
+  .ride-entry input, .ride-entry textarea{
+    background: transparent;
+    border: 1px solid transparent;
+    margin-left: -4px;
+    padding: 4px 3px 8px;
+    min-height: 38px;
+    border-radius: 6px;
+  }
+  .ride-entry input:focus-visible, .ride-entry textarea:focus-visible{ border-color: var(--ice); }
+  .ride-entry input::placeholder, .ride-entry textarea::placeholder{ color: #9ba5c8; }
+  .ride-fare input{ font-size: 22px; font-weight: 800; }
+  .ride-note textarea{ display: block; min-height: 54px; resize: vertical; }
+  .ride-compose .ride-submit{ min-height: 54px; border-radius: 16px; font-weight: 800; }
+  #view-passenger .order-card.searching{ animation: none; }
+  .ride-offer-grid{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 12px;
+  }
+  .ride-offer-grid > *{ min-width: 0; }
+  .ride-offer-grid .person-big{ overflow-wrap: anywhere; }
+  .ride-offer-fare{ text-align: right; }
+  .ride-offer-fare .ob-eta{ display: block; color: #b9c3df; font-size: 13px; }
+  .ride-offer-car{ grid-column: 1 / -1; overflow-wrap: anywhere; }
+  .ride-offer-car .ob-color{ color: #b9c3df; }
+  .ride-driver-route{ display: grid; gap: 7px; overflow-wrap: anywhere; }
+  .ride-driver-stop{ display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+  .ride-driver-stop small{ color: #b9c3df; font-size: 12px; align-self: center; }
 </style>
 </head>
 <body>
@@ -2270,17 +2337,17 @@ void main(){
       <div class="order-list offers-list">
         ${list.map(of => `
           <div class="req-card offer-card offer-big">
-            <div class="ob-head">
-              <div class="ob-line">
-                <span class="ob-car">${of.car ? esc(of.car.model) : ''}</span>
+            <div class="ride-offer-grid">
+              ${personBig(avatarHtml(of.driverName, driverAvatar(of.driverId), 40), of.driverName, ratingBadge(driverProfiles[of.driverId]))}
+              <div class="ride-offer-fare">
                 <span class="price-l">${esc(of.price)} ₽</span>
-              </div>
-              <div class="ob-line">
-                <span class="ob-color">${of.car ? esc(of.car.color) : ''}</span>
                 <span class="ob-eta">через ${esc(of.eta)} мин</span>
               </div>
+              ${of.car ? `<div class="ride-offer-car">
+                <span class="ob-car">${esc(of.car.model)}</span>
+                ${of.car.color ? `<span class="ob-color"> · ${esc(of.car.color)}</span>` : ''}
+              </div>` : ''}
             </div>
-            ${personBig(avatarHtml(of.driverName, driverAvatar(of.driverId), 48), of.driverName, ratingBadge(driverProfiles[of.driverId]))}
             <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
           </div>
         `).join('')}
@@ -2435,38 +2502,43 @@ void main(){
         return;
       }
       setHtml(el, `
-        <h1 class="view-title">Куда едем?</h1>
-        <p class="view-sub">Укажите адреса и предложите цену — водители увидят ваш заказ</p>
-        <hr class="divider">
-        <div class="field">
-          <label>Откуда</label>
-          <div class="input-wrap">
-            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-7.58 7-12A7 7 0 0 0 5 9c0 4.42 7 12 7 12Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="9" r="2.3" stroke="currentColor" stroke-width="1.6"/></svg></span>
-            <input id="f-from" type="text" placeholder="ул. Ленина, 10">
-          </div>
+        <div class="ride-heading">
+          <h1 class="view-title">Куда едем?</h1>
+          <p class="view-sub">Предложите свою цену за поездку</p>
         </div>
-        <div class="field">
-          <label>Куда</label>
-          <div class="input-wrap">
-            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 3v18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M5 4.2c2-1 4-1 6 0s4 1 6 0v7.6c-2 1-4 1-6 0s-4-1-6 0V4.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
-            <input id="f-to" type="text" placeholder="Аэропорт">
+        <div class="ride-compose">
+          <div class="ride-route" role="group" aria-label="Маршрут">
+            <div class="field">
+              <span class="ride-dot" aria-hidden="true"></span>
+              <div class="ride-entry">
+                <label for="f-from">Откуда</label>
+                <input id="f-from" type="text" placeholder="ул. Ленина, 10">
+              </div>
+            </div>
+            <div class="field">
+              <span class="ride-dot destination" aria-hidden="true"></span>
+              <div class="ride-entry">
+                <label for="f-to">Куда</label>
+                <input id="f-to" type="text" placeholder="Аэропорт">
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="field">
-          <label>Сколько готовы заплатить</label>
-          <div class="input-wrap">
-            <span class="icon">₽</span>
-            <input id="f-price" type="number" inputmode="numeric" min="0" placeholder="150">
+          <div class="field ride-fare">
+            <span class="ride-symbol fare" aria-hidden="true">₽</span>
+            <div class="ride-entry">
+              <label for="f-price">Ваша цена, ₽</label>
+              <input id="f-price" type="number" inputmode="numeric" min="0" placeholder="150">
+            </div>
           </div>
-        </div>
-        <div class="field">
-          <label>Комментарий (необязательно)</label>
-          <div class="input-wrap tall">
-            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
-            <textarea id="f-comment" placeholder="две сумки, подъезд со двора"></textarea>
+          <div class="field ride-note">
+            <span class="ride-symbol" aria-hidden="true">···</span>
+            <div class="ride-entry">
+              <label for="f-comment">Комментарий (необязательно)</label>
+              <textarea id="f-comment" placeholder="Подъезд со двора"></textarea>
+            </div>
           </div>
+          <button class="btn-primary ride-submit" onclick="submitOrder()">Найти водителя</button>
         </div>
-        <button class="btn-primary" onclick="submitOrder()">Заказать такси</button>
       `);
       if(reorderDraft){
         const d = reorderDraft;
@@ -2841,7 +2913,10 @@ void main(){
       html += pending.map(o => `
         <div class="req-card" id="req-${o.id}">
           ${paxRowHtml(o)}
-          <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+          <div class="order-route ride-driver-route">
+            <div class="ride-driver-stop"><small>Откуда</small><span>${esc(o.from)}</span></div>
+            <div class="ride-driver-stop"><small>Куда</small><span>${esc(o.to)}</span></div>
+          </div>
           <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span></div>
           ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
           ${etaSelectingId === o.id ? `
