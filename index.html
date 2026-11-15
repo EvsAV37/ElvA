@@ -742,7 +742,8 @@
     bottom: calc(28px + env(safe-area-inset-bottom));
     transform: translate(-50%, 8px);
     z-index: 90;
-    max-width: 82%;
+    width: max-content;
+    max-width: min(82%, 420px);
     padding: 14px 22px;
     border-radius: 999px;
     background: #fff;
@@ -1203,7 +1204,7 @@ void main(){
   </nav>
 
   <div id="conn-banner" class="conn-banner" hidden></div>
-  <div id="toast" class="toast" hidden></div>
+  <div id="toast" class="toast" role="status" hidden></div>
 
   <main>
     <section id="view-login" hidden>
@@ -1317,6 +1318,13 @@ void main(){
   // Короткое сообщение внизу экрана. Гаснет само через пару секунд, ничего
   // не требует от человека и не мешает ленте.
   let toastTimer = null;
+  function hideToast(){
+    clearTimeout(toastTimer);
+    const el = document.getElementById('toast');
+    el.classList.remove('show');
+    el.hidden = true;
+  }
+
   function showToast(text, ms){
     const el = document.getElementById('toast');
     if(!el) return;
@@ -1327,7 +1335,7 @@ void main(){
     el.classList.add('show');
     toastTimer = setTimeout(() => {
       el.classList.remove('show');
-      toastTimer = setTimeout(() => { el.hidden = true; }, 250);
+      toastTimer = setTimeout(hideToast, 250);
     }, ms || 2200);
   }
 
@@ -1371,6 +1379,7 @@ void main(){
   let driverName = ''; // заполняется из профиля при загрузке (loadMyProfile)
   let etaSelectingId = null;
   let etaPriceDrafts = {};    // order_id -> строка цены, которую сейчас печатает водитель (переживает перерендер)
+  const acceptingOffers = new Map(); // order_id -> offer_id
   let etaSelectedMinutes = {}; // order_id -> выбранное время подачи (кнопка или свой вариант), до нажатия ОК
   let ratingDrafts = {};      // order_id -> выбранная (но ещё не отправленная) оценка
   // Какая фаза ожидания (active/grace/overdue) сейчас отрисована в каждом из экранов.
@@ -2266,6 +2275,7 @@ void main(){
       .slice()
       .sort((a, b) => (Number(a.price) - Number(b.price)) || (a.eta - b.eta));
     if(!list.length) return '';
+    const accepting = acceptingOffers.get(order.id);
     return `
       <div class="order-list offers-list">
         ${list.map(of => `
@@ -2281,7 +2291,7 @@ void main(){
               </div>
             </div>
             ${personBig(avatarHtml(of.driverName, driverAvatar(of.driverId), 48), of.driverName, ratingBadge(driverProfiles[of.driverId]))}
-            <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})">Выбрать</button>
+            <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})" ${accepting === undefined ? '' : 'disabled'}>${accepting === of.id ? 'Выбираем…' : 'Выбрать'}</button>
           </div>
         `).join('')}
       </div>
@@ -2362,12 +2372,9 @@ void main(){
 
   // ---------- passenger view ----------
   function activePassengerOrder(){
-    // Завершённый и уже оценённый заказ пассажира с экрана убираем, но строку в базе
-    // не трогаем: она ещё нужна водителю, чтобы он успел поставить свою оценку.
-    // Отменённые сюда не попадают: для них отдельная карточка ниже.
-    return orders.find(o => o.passengerId === passengerId
-      && o.status !== 'cancelled'
-      && !(o.status === 'done' && o.rating != null));
+    const ownOrders = orders.filter(o => o.passengerId === passengerId);
+    return ownOrders.find(o => o.status !== 'cancelled' && o.status !== 'done')
+      || ownOrders.find(o => o.status === 'done' && o.rating == null);
   }
 
   // ---------- «Водитель отменил поездку» ----------
@@ -2678,25 +2685,61 @@ void main(){
   }
 
   async function acceptOffer(orderId, offerId){
-    // Если предложение уже пропало из локального кэша (кто-то успел раньше,
-    // или водитель уже занят и его предложения сняли) — даже не отправляем
-    // запрос, который заведомо откажет. Список сам обновится через realtime,
-    // просто мягко покажем это.
-    if(!offers.some(of => of.id === offerId)){
-      showBanner('Этот водитель уже занят — предлагаем других', 'notice');
-      setTimeout(() => hideBanner(true), 3000);
+    if(acceptingOffers.has(orderId)) return;
+    if(!orders.some(o => o.id === orderId && o.status === 'searching')){
+      showToast('Этот заказ уже изменился. Проверьте его статус.', 4500);
       return;
     }
-    const { error } = await sb.rpc('accept_offer', { p_order_id: orderId, p_offer_id: offerId });
-    if(error){
-      console.error('accept_offer failed:', error.message);
-      // accept_offer отказывает ровно по одной причине с точки зрения пассажира:
-      // предложение перестало быть доступным (водитель занят/заказ уже разобран).
-      // Точный текст с сервера тут не имеет значения — это не системная ошибка.
-      showBanner('Этот водитель уже занят — предлагаем других', 'notice');
-      setTimeout(() => hideBanner(true), 3000);
-      fetchOrders();
+    if(!offers.some(of => of.id === offerId && of.orderId === orderId)){
+      showToast('Это предложение больше недоступно.', 4500);
+      return;
     }
+
+    hideToast();
+    acceptingOffers.set(orderId, offerId);
+    renderPassenger();
+    try {
+      const { error, status } = await sb.rpc('accept_offer', { p_order_id: orderId, p_offer_id: offerId });
+      if(error) {
+        showAcceptOfferError(error, status, offerId);
+        return;
+      }
+      // После назначения эти предложения больше недействительны.
+      offers = offers.filter(of => of.orderId !== orderId);
+    } catch(error){
+      showAcceptOfferError(error, undefined, offerId);
+    } finally {
+      acceptingOffers.delete(orderId);
+      renderPassenger();
+    }
+  }
+
+  function showAcceptOfferError(error, status, offerId){
+    const message = error?.message || '';
+    console.error('accept_offer failed:', error?.code, message);
+    let text = 'Не удалось выбрать водителя. Попробуйте ещё раз.';
+    if(status === 401 || ['PGRST301', 'PGRST303'].includes(error?.code)){
+      text = 'Сессия истекла. Войдите снова, чтобы выбрать водителя.';
+    } else if(status === 0 || !navigator.onLine || /failed to fetch|networkerror|load failed/i.test(message)){
+      text = 'Нет связи с сервисом. Проверьте интернет и попробуйте ещё раз.';
+    } else if(error?.code === 'P0001'){
+      if(message === 'order not found, not yours, or already taken'){
+        text = 'Этот заказ уже изменился. Обновляем его статус.';
+        fetchOrders();
+      } else if(message === 'not authenticated'){
+        text = 'Сессия истекла. Войдите снова, чтобы выбрать водителя.';
+      } else if(message === 'phone not verified'){
+        text = 'Подтвердите номер телефона, чтобы выбрать водителя.';
+      } else if(message === 'account banned'){
+        text = 'Аккаунт заблокирован. Выбрать водителя сейчас нельзя.';
+      } else if(['offer not found', 'driver unavailable', 'этот водитель уже занят другим заказом, выберите другого'].includes(message)){
+        offers = offers.filter(of => of.id !== offerId);
+        text = message === 'этот водитель уже занят другим заказом, выберите другого'
+          ? 'Этот водитель уже занят. Выберите другое предложение.'
+          : 'Это предложение больше недоступно.';
+      }
+    }
+    showToast(text, 4500);
   }
 
   // ---------- driver view ----------
@@ -2805,9 +2848,8 @@ void main(){
     if(banned) html += bannedDriverCard();
     else if(!isBusy) html += driverNeedsCar() ? carNeededCard() : driverAvailabilityBlock();
 
-    if(needsRating.length){
-      html += `<div class="order-list">`;
-      html += needsRating.map(o => `
+    const ratingsHtml = needsRating.length ? `<div class="order-list">
+      ${needsRating.map(o => `
         <div class="req-card">
           <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
           <div class="rating-block">
@@ -2818,9 +2860,9 @@ void main(){
             <button class="btn-accept rating-confirm" onclick="confirmRatePassenger(${o.id})" ${!ratingDrafts[o.id] ? 'disabled' : ''}>Оценить</button>
           </div>
         </div>
-      `).join('');
-      html += `</div>`;
-    }
+      `).join('')}
+    </div>` : '';
+    if(!isBusy) html += ratingsHtml;
 
     if(mine.length){
       html += `<div class="order-list">`;
@@ -2835,6 +2877,8 @@ void main(){
       ` : driverTripCard(o)).join('');
       html += `</div>`;
     }
+
+    if(isBusy) html += ratingsHtml;
 
     if(pending.length){
       html += `${mine.length ? '<div class="section-label">Свободные заказы</div>' : ''}<div class="order-list">`;
