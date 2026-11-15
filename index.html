@@ -18,42 +18,27 @@
 <meta name="apple-mobile-web-app-title" content="ElvA">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#03070a">
-<!-- Шрифты лежат рядом с index.html (elva-manrope.woff2, elva-unbounded.woff2),
-     а не на сервере Google: страница не ждёт чужой сервер, поэтому первый
-     кадр рисуется сразу — без серой вспышки при запуске с экрана «Домой».
-     Файлы урезаны до русских и латинских букв и нужных начертаний.
-     font-display: block — пока шрифт не загрузился, текст не показывается
-     системным шрифтом, поэтому ничего не «дёргается». Грузятся они за доли
-     секунды, а заставка всё равно держится дольше.
-     Шрифты — Manrope и Unbounded, лицензия SIL Open Font License 1.1. -->
-<link rel="preload" href="elva-manrope.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="elva-unbounded.woff2" as="font" type="font/woff2" crossorigin>
-<style>
-  @font-face{
-    font-family: 'Manrope';
-    src: url('elva-manrope.woff2') format('woff2');
-    font-weight: 400 700; font-style: normal; font-display: block;
-  }
-  @font-face{
-    font-family: 'Unbounded';
-    src: url('elva-unbounded.woff2') format('woff2');
-    font-weight: 500 700; font-style: normal; font-display: block;
-  }
-</style>
+<script src="elva-theme.js"></script>
+<link rel="stylesheet" href="fonts/onest.css">
 <style>
   :root{
-    --night: #10142A;
-    --surface: #1A2044;
-    --surface-2: #232B58;
-    --ice: #8FE0E8;
-    --ice-dim: #5C7A8A;
-    --amber: #F2A65A;
-    --amber-dim: #8A6440;
-    --text: #EDEFF5;
-    --muted: #8089AC;
-    --success: #7FD9A6;
-    --danger: #E8737B;
-    --line: rgba(237,239,245,0.09);
+    color-scheme: light;
+    --night: #f4f4f6;
+    --surface: #fff;
+    --surface-2: #f4f4f6;
+    --ice: #1a8048;
+    --ice-dim: #5c7267;
+    --amber: #2d4a3e;
+    --amber-dim: #686d76;
+    --text: #0b0c0e;
+    --muted: #61666e;
+    --success: #1a8048;
+    --danger: #b52222;
+    --line: #e5e5ea;
+    --control-border: #b9bbc3;
+    --action: #1a8048;
+    --action-text: #fff;
+    --danger-text: #fff;
     --radius: 16px;
 
     /* Единый вид всех экранов. Новые экраны берут размеры отсюда, а не
@@ -67,6 +52,26 @@
     --btn-h: 48px;   /* высота кнопок, полей и плашек выбора */
     --r-card: 16px;  /* карточка на экране */
     --r-in: 12px;    /* карточка внутри карточки, кнопка, поле */
+  }
+
+  :root[data-theme="dark"]{
+    color-scheme: dark;
+    --night: #24262b;
+    --surface: #1a1b1f;
+    --surface-2: #24262b;
+    --ice: #3dd17d;
+    --ice-dim: #9499a3;
+    --amber: #3dd17d;
+    --amber-dim: #9499a3;
+    --text: #f5f5f7;
+    --muted: #9499a3;
+    --success: #3dd17d;
+    --danger: #ff6b6f;
+    --line: #34363c;
+    --control-border: #62656e;
+    --action: #2dbe6c;
+    --action-text: #04200f;
+    --danger-text: #230809;
   }
 
   *{ box-sizing: border-box; }
@@ -93,8 +98,8 @@
     touch-action: pan-x pan-y;
     overscroll-behavior: none;
     -webkit-tap-highlight-color: transparent;
-    background: radial-gradient(1200px 600px at 50% -10%, #1c2550 0%, var(--night) 60%);
-    font-family: 'Manrope', sans-serif;
+    background: var(--night);
+    font-family: 'Onest', system-ui, sans-serif;
     color: var(--text);
     display: flex;
     justify-content: center;
@@ -107,7 +112,7 @@
     background: var(--surface);
     border-radius: 24px;
     overflow: hidden;
-    box-shadow: 0 40px 80px -30px rgba(0,0,0,0.6), 0 0 0 1px var(--line);
+    box-shadow: 0 10px 32px rgba(0,0,0,.10), 0 0 0 1px var(--line);
     display: flex;
     flex-direction: column;
     min-height: 720px;
@@ -119,49 +124,31 @@
     overflow: hidden;
   }
 
-  /* Мягкое затухание к низу шапки: свечение уходит в цвет экрана без резкой границы. */
-  .header::after{
-    content: '';
-    position: absolute;
-    left: 0; right: 0; bottom: 0;
-    height: 48px;
-    background: linear-gradient(to bottom, transparent, var(--surface));
-    pointer-events: none;
-  }
-
-  .aurora{
-    position: absolute;
-    inset: -40% -20% auto -20%;
-    height: 200px;
-    background:
-      radial-gradient(300px 120px at 20% 40%, rgba(143,224,232,0.28), transparent 70%),
-      radial-gradient(260px 140px at 75% 20%, rgba(242,166,90,0.16), transparent 70%),
-      radial-gradient(220px 100px at 50% 60%, rgba(127,217,166,0.14), transparent 70%);
-    filter: blur(6px);
-    animation: drift 14s ease-in-out infinite alternate;
-    pointer-events: none;
-  }
-
-  @keyframes drift{
-    from{ transform: translateX(-4%) translateY(0); }
-    to{ transform: translateX(4%) translateY(6px); }
-  }
-
-  .logo-row{ position: relative; display: flex; align-items: baseline; justify-content: space-between; }
+  .logo-row{ position: relative; display: flex; align-items: center; gap: 10px; }
   .logo{
-    font-family: 'Unbounded', sans-serif;
+    font-family: 'Onest', system-ui, sans-serif;
     font-size: 26px;
     font-weight: 600;
     letter-spacing: -0.02em;
-    color: var(--ice);
+    color: var(--text);
   }
   .tagline{
     position: relative;
     margin: 4px 0 10px;
     font-size: var(--fs-s);
     color: var(--muted);
-    text-align: right;
+    text-align: left;
   }
+  #view-settings:not([hidden]){ display: grid; gap: 16px; }
+  .theme-options{ border: 0; margin: 0; padding: 0; min-width: 0; }
+  .theme-options legend{ font-weight: 750; margin-bottom: 8px; }
+  .theme-choice{ display: flex; align-items: center; gap: 12px; min-height: 44px; margin: 0; color: var(--text); }
+  .theme-choice + .theme-choice{ border-top: 1px solid var(--line); }
+  .theme-choice input{ position: absolute; width: 1px; height: 1px; min-height: 0; padding: 0; opacity: 0; }
+  .theme-choice:has(input:focus-visible){ outline: 2px solid var(--ice); outline-offset: 2px; border-radius: 4px; }
+  .theme-choice input:checked + span{ font-weight: 750; }
+  .theme-check{ margin-left: auto; color: var(--ice); visibility: hidden; }
+  .theme-choice input:checked ~ .theme-check{ visibility: visible; }
 
   .switcher{
     position: relative;
@@ -179,7 +166,7 @@
     border: none;
     background: transparent;
     color: var(--muted);
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Onest', system-ui, sans-serif;
     font-weight: 700;
     font-size: var(--fs-s);
     padding: 10px 0;
@@ -209,7 +196,7 @@
   }
 
   h1.view-title{
-    font-family: 'Unbounded', sans-serif;
+    font-family: 'Onest', system-ui, sans-serif;
     font-size: var(--fs-xl);
     line-height: 1.25;
     font-weight: 600;
@@ -238,7 +225,7 @@
     background: var(--surface-2);
     border: 1px solid var(--line);
     color: var(--text);
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Onest', system-ui, sans-serif;
     /* Ровно 16px: при меньшем размере iPhone при нажатии на поле
        самостоятельно приближает экран, и вёрстка «уезжает». */
     font-size: var(--fs-m);
@@ -287,7 +274,7 @@
     padding: 0 16px;
     border: 1px solid transparent;
     border-radius: var(--r-in);
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Onest', system-ui, sans-serif;
     font-weight: 700;
     font-size: var(--fs-m);
     line-height: 1.2;
@@ -298,10 +285,10 @@
     text-align: center;
     cursor: pointer;
   }
-  .btn-primary, .btn-accept, .btn-complete{ background: var(--ice); color: #0c2126; }
-  .btn-call{ background: transparent; border-color: rgba(237,239,245,0.22); color: var(--text); }
+  .btn-primary, .btn-accept, .btn-complete{ background: var(--action); color: var(--action-text); }
+  .btn-call{ background: transparent; border-color: var(--control-border); color: var(--text); }
   .btn-ghost{ background: transparent; border-color: var(--line); color: var(--muted); }
-  .btn-danger{ background: var(--danger); color: #2a0b0e; }
+  .btn-danger{ background: var(--danger); color: var(--danger-text); }
   .btn-primary:disabled, .btn-accept:disabled, .btn-complete:disabled{ opacity: 0.4; cursor: default; }
   .btn-stack{ display: flex; flex-direction: column; gap: 8px; }
 
@@ -322,8 +309,8 @@
     animation: searchPulse 2.2s ease-in-out infinite;
   }
   @keyframes searchPulse{
-    0%, 100%{ border-color: var(--line); box-shadow: 0 0 0 0 rgba(143,224,232,0); }
-    50%{ border-color: var(--ice); box-shadow: 0 0 14px -2px rgba(143,224,232,0.35); }
+    0%, 100%{ border-color: var(--line); box-shadow: 0 0 0 0 transparent; }
+    50%{ border-color: var(--ice); box-shadow: 0 0 14px -2px color-mix(in srgb, var(--ice) 30%, transparent); }
   }
   .order-route{ font-size: var(--fs-m); font-weight: 700; line-height: 1.35; margin: 0; }
   .order-route .arrow{ color: var(--ice-dim); margin: 0 6px; }
@@ -378,7 +365,7 @@
     text-decoration: none;
     cursor: pointer;
   }
-  .callback-number.tapped{ border-color: var(--ice); background: rgba(143,224,232,0.08); }
+  .callback-number.tapped{ border-color: var(--ice); background: color-mix(in srgb, var(--ice) 12%, transparent); }
   /* Переключатель ролей на экране входа не убирается из потока, а становится
      невидимым — иначе шапка "схлопывается", свечение в ней обрезается по
      меньшей высоте и стык с экраном становится резким. */
@@ -387,7 +374,7 @@
     flex-shrink: 0;
     min-width: 60px;
     text-align: center;
-    font-family: 'Manrope', sans-serif;
+    font-family: 'Onest', system-ui, sans-serif;
     font-size: var(--fs-m);
     font-weight: 800;
     font-variant-numeric: tabular-nums;
@@ -425,7 +412,7 @@
   .rate-star{
     appearance: none; border: none; background: transparent;
     padding: 4px; line-height: 0; cursor: pointer;
-    color: rgba(237,239,245,0.16);
+    color: var(--line);
     transition: color 0.15s ease, transform 0.1s ease;
     -webkit-tap-highlight-color: transparent;
   }
@@ -450,7 +437,7 @@
   .empty-state .spinner{
     width: 30px; height: 30px;
     margin: 0 auto 16px;
-    border: 2.5px solid rgba(143,224,232,0.16);
+    border: 2.5px solid color-mix(in srgb, var(--ice) 12%, transparent);
     border-top-color: var(--ice);
     border-radius: 50%;
     animation: spin 1.8s linear infinite;
@@ -476,13 +463,14 @@
   .req-comment{ font-size: var(--fs-s); color: var(--muted); margin: 0; font-style: italic; }
   .req-actions{ display: flex; gap: 8px; }
   .req-actions > button{ flex: 1; }
+  .offer-actions{ flex-direction: column; }
 
   .eta-picker{ display: flex; flex-direction: column; gap: 12px; }
   .eta-options{ display: flex; gap: 8px; margin: 0 0 8px; }
   .eta-chip{
     flex: 1; min-height: var(--btn-h); padding: 0; background: var(--surface); color: var(--text);
     border: 1px solid var(--line); border-radius: var(--r-in);
-    font-family: 'Manrope', sans-serif; font-weight: 700; font-size: var(--fs-m); cursor: pointer;
+    font-family: 'Onest', system-ui, sans-serif; font-weight: 700; font-size: var(--fs-m); cursor: pointer;
   }
   .eta-chip:focus, .eta-chip:focus-visible{ outline: none; border-color: var(--ice); }
   .eta-chip.active{
@@ -504,8 +492,8 @@
     line-height: 1.5;
   }
   .conn-banner.error{ background: rgba(232,115,123,0.12); border: 1px solid var(--danger); color: var(--text); }
-  .conn-banner.pending{ background: rgba(143,224,232,0.1); border: 1px solid var(--ice-dim); color: var(--muted); }
-  .conn-banner.notice{ background: rgba(143,224,232,0.1); border: 1px solid var(--ice-dim); color: var(--text); }
+  .conn-banner.pending{ background: color-mix(in srgb, var(--ice) 12%, transparent); border: 1px solid var(--ice-dim); color: var(--muted); }
+  .conn-banner.notice{ background: color-mix(in srgb, var(--ice) 12%, transparent); border: 1px solid var(--ice-dim); color: var(--text); }
 
   .burger-btn{
     appearance: none;
@@ -590,7 +578,7 @@
 
   .history-head{ display: flex; align-items: center; gap: 12px; margin: 0; }
   .history-back{
-    appearance: none; background: transparent; border: 1px solid rgba(237,239,245,0.22);
+    appearance: none; background: transparent; border: 1px solid var(--control-border);
     color: var(--text); border-radius: 10px; min-height: 36px; padding: 0 12px;
     font-family: inherit; font-weight: 600; font-size: var(--fs-s); cursor: pointer; flex: none;
   }
@@ -729,7 +717,7 @@
     border: 1px solid var(--line);
     border-radius: var(--r-card);
   }
-  .avail-row.free{ border-color: rgba(138, 226, 230, 0.35); }
+  .avail-row.free{ border-color: var(--ice-dim); }
   .avail-text{ flex: 1; min-width: 0; }
   .avail-title{ font-weight: 700; font-size: var(--fs-m); }
   .avail-row.free .avail-title{ color: var(--ice); }
@@ -806,7 +794,7 @@
     background: #fff; color: #111;
     border: 0.09em solid #111; border-radius: 0.2em;
     box-shadow: 0 0 0 0.06em rgba(255,255,255,0.55);
-    font-family: 'Manrope', sans-serif; font-weight: 700;
+    font-family: 'Onest', system-ui, sans-serif; font-weight: 700;
     font-variant-numeric: tabular-nums; line-height: 1;
     white-space: nowrap; vertical-align: middle;
   }
@@ -827,12 +815,6 @@
   .plate-sm{ font-size: 14px; }
   .plate-lg{ font-size: 34px; }
 
-  /* ---------- Предложение водителя ----------
-     Слева марка и под ней цвет, справа цена и под ней время подачи. Ниже —
-     водитель с фото. Номера здесь нет: пассажир видит его, только когда
-     выберет водителя. */
-  .ob-head{ display: flex; flex-direction: column; gap: 2px; }
-  .ob-line{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .ob-car{ font-size: var(--fs-m); font-weight: 800; line-height: 1.3; color: var(--text); }
   .ob-color{ font-size: var(--fs-s); font-weight: 500; line-height: 1.3; color: var(--text); }
   .ob-eta{ font-size: var(--fs-m); font-weight: 700; color: var(--text); white-space: nowrap; }
@@ -843,7 +825,7 @@
   .avatar{
     position: relative; flex: none;
     width: var(--av, 36px); height: var(--av, 36px); border-radius: 50%;
-    overflow: hidden; background: rgba(143,224,232,0.16); color: var(--ice);
+    overflow: hidden; background: color-mix(in srgb, var(--ice) 12%, transparent); color: var(--ice);
     display: inline-flex; align-items: center; justify-content: center;
     font-weight: 800; font-size: calc(var(--av, 36px) * 0.45); line-height: 1;
   }
@@ -901,8 +883,6 @@
   .car-top-row{ display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
   .car-top-name{ font-size: var(--fs-l); font-weight: 800; line-height: 1.25; }
   .car-top-color{ display: block; font-size: var(--fs-m); font-weight: 500; margin-top: 2px; }
-  .car-top-when{ font-size: var(--fs-l); font-weight: 800; color: var(--amber); white-space: nowrap; font-variant-numeric: tabular-nums; }
-  .car-top-when.here{ color: var(--success); }
   .route-bottom{ padding-top: 12px; border-top: 1px solid var(--line); display: flex; flex-direction: column; gap: 12px; }
 
   /* Карточка поездки у водителя: крупно адрес, куда ехать. */
@@ -922,7 +902,7 @@
      но ничего не отправляют (см. busyAction в коде). */
   button, .callback-number{ transition: transform 0.1s ease, filter 0.12s ease, background-color 0.12s ease; }
   button:not(:disabled):active, .callback-number:active{ transform: scale(0.96); filter: brightness(0.85); }
-  .btn-ghost:not(:disabled):active, .menu-item:active{ background-color: rgba(237,239,245,0.08); }
+  .btn-ghost:not(:disabled):active, .menu-item:active{ background-color: var(--surface-2); }
   @media (prefers-reduced-motion: reduce){
     button:not(:disabled):active, .callback-number:active{ transform: none; }
   }
@@ -955,6 +935,82 @@
   .push-card .push-actions button{ flex: 1; margin: 0; }
 
   [hidden]{ display: none !important; }
+
+  /* Форма поездки и карточки предложений */
+  .ride-heading .view-sub{ margin: 6px 0 0; color: var(--muted); }
+  .ride-heading .view-title{ font-size: clamp(24px, 7vw, 30px); }
+  .ride-compose{ display: grid; gap: 12px; }
+  .ride-route, .ride-fare, .ride-note{
+    background: var(--night);
+    border: 1px solid var(--line);
+    border-radius: 18px;
+  }
+  .ride-route{ position: relative; padding: 0 14px; }
+  .ride-route::before{
+    content: '';
+    position: absolute;
+    left: 27px;
+    top: 41px;
+    bottom: 41px;
+    border-left: 1px dashed var(--ice-dim);
+  }
+  .ride-route .field, .ride-fare{
+    display: grid;
+    grid-template-columns: 28px minmax(0, 1fr);
+    align-items: center;
+    column-gap: 12px;
+  }
+  .ride-route .field + .field{ border-top: 1px solid var(--line); }
+  .ride-fare, .ride-note{ padding: 0 14px; }
+  .ride-dot, .ride-symbol{
+    position: relative;
+    justify-self: center;
+    color: var(--ice);
+    font-weight: 800;
+  }
+  .ride-dot{
+    width: 13px;
+    height: 13px;
+    border: 2px solid currentColor;
+    border-radius: 50%;
+    background: var(--night);
+  }
+  .ride-dot.destination{ border-radius: 4px; color: var(--amber); }
+  .ride-symbol.fare{ font-size: 24px; color: var(--amber); }
+  .ride-entry{ padding-top: 10px; }
+  .ride-entry label{ color: var(--muted); font-size: 12px; margin: 0; }
+  .ride-entry input, .ride-entry textarea{
+    background: transparent;
+    border: 1px solid transparent;
+    margin-left: -4px;
+    padding: 4px 3px 8px;
+    min-height: 38px;
+    border-radius: 6px;
+  }
+  .ride-entry input:focus-visible, .ride-entry textarea:focus-visible{ border-color: var(--ice); }
+  .ride-entry input::placeholder, .ride-entry textarea::placeholder{ color: var(--muted); }
+  .ride-fare input{ font-size: 22px; font-weight: 800; }
+  .ride-note-toggle{ grid-column: 1 / -1; cursor: pointer; padding: 12px 0; font-weight: 650; color: var(--ice); }
+  .ride-note textarea{ display: block; min-height: 54px; resize: vertical; }
+  .ride-fare input:not(:placeholder-shown){ color: var(--amber); }
+  .ride-compose .ride-submit{ min-height: 54px; border-radius: 28px; font-weight: 700; }
+  .btn-primary, .btn-accept, .btn-complete, .btn-call{ border-radius: 24px; }
+  #view-passenger .order-card.searching{ animation: none; }
+  .ride-offer-grid{
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
+    gap: 8px 12px;
+  }
+  .ride-offer-grid > *{ min-width: 0; }
+  .ride-offer-grid .person-big{ overflow-wrap: anywhere; }
+  .ride-offer-fare{ text-align: right; }
+  .ride-offer-fare .ob-eta{ display: block; color: var(--muted); font-size: 13px; }
+  .ride-offer-car{ grid-column: 1 / -1; overflow-wrap: anywhere; }
+  .ride-offer-car .ob-color{ color: var(--muted); }
+  .ride-driver-route{ display: grid; gap: 7px; overflow-wrap: anywhere; }
+  .ride-driver-stop{ display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
+  .ride-driver-stop small{ color: var(--muted); font-size: 12px; align-self: center; }
 </style>
 </head>
 <body>
@@ -1167,7 +1223,6 @@ void main(){
 
 <div class="app-shell">
   <div class="header">
-    <div class="aurora"></div>
     <div class="logo-row">
       <button class="burger-btn ghost" id="burger-btn" onclick="openMenu()" aria-label="Меню">
         <span></span><span></span><span></span>
@@ -1195,6 +1250,7 @@ void main(){
     <button class="btn-primary btn-login menu-role-switch" id="menu-role-switch" onclick="switchRoleFromMenu()">—</button>
 
     <div class="menu-items">
+      <button class="menu-item" onclick="openSettings()">Настройки</button>
       <button class="menu-item" onclick="openHistory()">История заказов</button>
       <button class="menu-item" id="menu-car" onclick="openCarFromMenu()" hidden>Моя машина</button>
       <button class="menu-item" onclick="sendTestPush()">Проверить уведомления</button>
@@ -1247,6 +1303,20 @@ void main(){
     <section id="view-help" hidden></section>
     <section id="view-car" hidden></section>
     <section id="view-profile" hidden></section>
+    <section id="view-settings" hidden>
+      <div class="history-head">
+        <button class="history-back" onclick="switchView(currentView)">← Назад</button>
+        <h1 class="view-title">Настройки</h1>
+      </div>
+      <div class="order-card">
+        <fieldset class="theme-options">
+          <legend>Оформление</legend>
+          <label class="theme-choice"><input type="radio" name="elva-theme" value="system" checked><span>Как в системе</span><span class="theme-check" aria-hidden="true">✓</span></label>
+          <label class="theme-choice"><input type="radio" name="elva-theme" value="light"><span>Светлая</span><span class="theme-check" aria-hidden="true">✓</span></label>
+          <label class="theme-choice"><input type="radio" name="elva-theme" value="dark"><span>Тёмная</span><span class="theme-check" aria-hidden="true">✓</span></label>
+        </fieldset>
+      </div>
+    </section>
     <section id="view-banned" hidden></section>
   </main>
 </div>
@@ -1378,7 +1448,8 @@ void main(){
   }
   let driverName = ''; // заполняется из профиля при загрузке (loadMyProfile)
   let etaSelectingId = null;
-  let etaPriceDrafts = {};    // order_id -> строка цены, которую сейчас печатает водитель (переживает перерендер)
+  let etaPriceDrafts = {};    // Есть запись только для встречной цены.
+  const submittingOffers = new Set();
   const acceptingOffers = new Map(); // order_id -> offer_id
   let etaSelectedMinutes = {}; // order_id -> выбранное время подачи (кнопка или свой вариант), до нажатия ОК
   let ratingDrafts = {};      // order_id -> выбранная (но ещё не отправленная) оценка
@@ -1768,7 +1839,7 @@ void main(){
   function applyBan(){
     const el = document.getElementById('view-banned');
     if(fullBanActive()){
-      for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car', 'view-profile']){
+      for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car', 'view-profile', 'view-settings']){
         document.getElementById(id).hidden = true;
       }
       el.innerHTML = `
@@ -1818,6 +1889,7 @@ void main(){
     if(!document.getElementById('view-help').hidden) return null;
     if(!document.getElementById('view-car').hidden) return null;
     if(!document.getElementById('view-profile').hidden) return null;
+    if(!document.getElementById('view-settings').hidden) return null;
     return currentView === 'driver' ? 'driver' : 'passenger';
   }
 
@@ -2194,7 +2266,7 @@ void main(){
   function passengerHeadline(order){
     if(order.status === 'searching'){
       const n = offers.filter(of => of.orderId === order.id).length;
-      return n > 0 ? `Предложений от водителей: ${n}` : 'Ищем водителей';
+      return n > 0 ? `Предложения · ${n}` : 'Ищем водителя';
     }
     if(order.status === 'accepted'){
       const c = formatEtaCountdown(order);
@@ -2203,7 +2275,7 @@ void main(){
       if(c.expired) return 'Водитель ' + name + ' вот-вот будет на месте';
       return 'Водитель ' + name + ' прибудет через <span data-tick="eta" data-order-id="' + order.id + '">' + c.text + '</span>';
     }
-    if(order.status === 'arrived') return 'Водитель подъехал';
+    if(order.status === 'arrived') return 'Водитель на месте';
     if(order.status === 'in_progress') return 'Поездка началась';
     if(order.status === 'done') return 'Поездка завершена';
     return 'Ваш заказ';
@@ -2280,17 +2352,17 @@ void main(){
       <div class="order-list offers-list">
         ${list.map(of => `
           <div class="req-card offer-card offer-big">
-            <div class="ob-head">
-              <div class="ob-line">
-                <span class="ob-car">${of.car ? esc(of.car.model) : ''}</span>
+            <div class="ride-offer-grid">
+              ${personBig(avatarHtml(of.driverName, driverAvatar(of.driverId), 40), of.driverName, ratingBadge(driverProfiles[of.driverId]))}
+              <div class="ride-offer-fare">
                 <span class="price-l">${esc(of.price)} ₽</span>
+                <span class="ob-eta">подача ${esc(of.eta)} мин</span>
               </div>
-              <div class="ob-line">
-                <span class="ob-color">${of.car ? esc(of.car.color) : ''}</span>
-                <span class="ob-eta">через ${esc(of.eta)} мин</span>
-              </div>
+              ${of.car ? `<div class="ride-offer-car">
+                <span class="ob-car">${esc(of.car.model)}</span>
+                ${of.car.color ? `<span class="ob-color"> · ${esc(of.car.color)}</span>` : ''}
+              </div>` : ''}
             </div>
-            ${personBig(avatarHtml(of.driverName, driverAvatar(of.driverId), 48), of.driverName, ratingBadge(driverProfiles[of.driverId]))}
             <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})" ${accepting === undefined ? '' : 'disabled'}>${accepting === of.id ? 'Выбираем…' : 'Выбрать'}</button>
           </div>
         `).join('')}
@@ -2411,15 +2483,6 @@ void main(){
     dismissCancelNotice(id);
   }
 
-  // Справа от машины: сколько осталось ехать водителю, «скоро» или «на месте».
-  function carWhenHtml(order){
-    if(order.status === 'arrived') return '<span class="car-top-when here">на месте</span>';
-    const c = formatEtaCountdown(order);
-    if(!c) return `<span class="car-top-when">${esc(order.eta)} мин</span>`;
-    if(c.expired) return '<span class="car-top-when">скоро</span>';
-    return `<span class="car-top-when" data-tick="eta" data-order-id="${order.id}">${c.text}</span>`;
-  }
-
   function renderPassenger(){
     const el = document.getElementById('view-passenger');
     renderedWaitPhase.passenger = {};
@@ -2442,38 +2505,40 @@ void main(){
         return;
       }
       setHtml(el, `
-        <h1 class="view-title">Куда едем?</h1>
-        <p class="view-sub">Укажите адреса и предложите цену — водители увидят ваш заказ</p>
-        <hr class="divider">
-        <div class="field">
-          <label>Откуда</label>
-          <div class="input-wrap">
-            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M12 21s7-7.58 7-12A7 7 0 0 0 5 9c0 4.42 7 12 7 12Z" stroke="currentColor" stroke-width="1.6"/><circle cx="12" cy="9" r="2.3" stroke="currentColor" stroke-width="1.6"/></svg></span>
-            <input id="f-from" type="text" placeholder="ул. Ленина, 10">
-          </div>
+        <div class="ride-heading">
+          <h1 class="view-title">Куда едем?</h1>
+          <p class="view-sub">Предложите свою цену за поездку</p>
         </div>
-        <div class="field">
-          <label>Куда</label>
-          <div class="input-wrap">
-            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M5 3v18" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M5 4.2c2-1 4-1 6 0s4 1 6 0v7.6c-2 1-4 1-6 0s-4-1-6 0V4.2Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
-            <input id="f-to" type="text" placeholder="Аэропорт">
+        <div class="ride-compose">
+          <div class="ride-route" role="group" aria-label="Маршрут">
+            <div class="field">
+              <span class="ride-dot" aria-hidden="true"></span>
+              <div class="ride-entry">
+                <label for="f-from">Откуда</label>
+                <input id="f-from" type="text" placeholder="ул. Ленина, 10">
+              </div>
+            </div>
+            <div class="field">
+              <span class="ride-dot destination" aria-hidden="true"></span>
+              <div class="ride-entry">
+                <label for="f-to">Куда</label>
+                <input id="f-to" type="text" placeholder="Аэропорт">
+              </div>
+            </div>
           </div>
-        </div>
-        <div class="field">
-          <label>Сколько готовы заплатить</label>
-          <div class="input-wrap">
-            <span class="icon">₽</span>
-            <input id="f-price" type="number" inputmode="numeric" min="0" placeholder="150">
+          <div class="field ride-fare">
+            <span class="ride-symbol fare" aria-hidden="true">₽</span>
+            <div class="ride-entry">
+              <label for="f-price">Ваша цена, ₽</label>
+              <input id="f-price" type="number" inputmode="numeric" min="0" placeholder="150">
+            </div>
           </div>
+          <details class="ride-note" id="ride-note" ${el.querySelector('#ride-note')?.open || reorderDraft?.comment ? 'open' : ''}>
+            <summary class="ride-note-toggle">Добавить комментарий</summary>
+            <textarea id="f-comment" aria-label="Комментарий к заказу" placeholder="Подъезд со двора"></textarea>
+          </details>
+          <button class="btn-primary ride-submit" onclick="submitOrder()">Найти водителя</button>
         </div>
-        <div class="field">
-          <label>Комментарий (необязательно)</label>
-          <div class="input-wrap tall">
-            <span class="icon"><svg viewBox="0 0 24 24" fill="none"><path d="M4 5h16v11H8l-4 4V5Z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/></svg></span>
-            <textarea id="f-comment" placeholder="две сумки, подъезд со двора"></textarea>
-          </div>
-        </div>
-        <button class="btn-primary" onclick="submitOrder()">Заказать такси</button>
       `);
       if(reorderDraft){
         const d = reorderDraft;
@@ -2492,7 +2557,7 @@ void main(){
     const carFirst = (order.status === 'accepted' || order.status === 'arrived') && order.car && order.car.plate;
     const routeHtml = `
         <div class="order-route">${esc(order.from)}<span class="arrow">→</span>${esc(order.to)}</div>
-        <div class="order-meta">Заказ №${order.id} · ${esc(order.time)} · <span class="order-price">${esc(order.price)} ₽</span></div>`;
+        <div class="order-meta">Заказ №${order.id} · ${esc(order.time)} · ${order.status === 'searching' ? 'Ваша цена ' : ''}<span class="order-price">${esc(order.price)} ₽</span></div>`;
 
     setHtml(el, `
       <h1 class="view-title order-title">${passengerHeadline(order)}</h1>
@@ -2501,7 +2566,6 @@ void main(){
           <div class="car-top-plate">${plateHtml(order.car.plate, 'lg')}</div>
           <div class="car-top-row">
             <span class="car-top-name">${esc(order.car.model)}${order.car.color ? `<span class="car-top-color">${esc(order.car.color)}</span>` : ''}</span>
-            ${carWhenHtml(order)}
           </div>
           ${personBig(avatarHtml(order.driverName, driverAvatar(order.driverId), 56), order.driverName, ratingBadge(driverProfiles[order.driverId]))}
         ` : `
@@ -2885,17 +2949,21 @@ void main(){
       html += pending.map(o => `
         <div class="req-card" id="req-${o.id}">
           ${paxRowHtml(o)}
-          <div class="order-route">${esc(o.from)}<span class="arrow">→</span>${esc(o.to)}</div>
+          <div class="order-route ride-driver-route">
+            <div class="ride-driver-stop"><small>Откуда</small><span>${esc(o.from)}</span></div>
+            <div class="ride-driver-stop"><small>Куда</small><span>${esc(o.to)}</span></div>
+          </div>
           <div class="req-price"><span class="price-l">${esc(o.price)} ₽</span></div>
           ${o.comment ? `<div class="req-comment">«${esc(o.comment)}»</div>` : ''}
           ${etaSelectingId === o.id ? `
             <div class="eta-picker">
+              ${etaPriceDrafts[o.id] !== undefined ? `
               <div class="field">
                 <label for="price-input-${o.id}">Ваша цена, ₽</label>
                 <input id="price-input-${o.id}" type="number" min="0" inputmode="numeric"
-                       value="${esc(etaPriceDrafts[o.id] !== undefined ? etaPriceDrafts[o.id] : o.price)}"
+                       value="${esc(etaPriceDrafts[o.id])}"
                        oninput="etaPriceDrafts[${o.id}] = this.value; updateOfferButton(${o.id})">
-              </div>
+              </div>` : ''}
               <div class="field">
                 <label>Через сколько будете на месте</label>
                 <div class="eta-options">
@@ -2909,8 +2977,9 @@ void main(){
               <button class="btn-ghost" onclick="cancelEtaSelection()">Не сейчас</button>
             </div>
           ` : `
-            <div class="req-actions">
-              <button class="btn-accept" onclick="startEtaSelection(${o.id})">Принять</button>
+            <div class="req-actions offer-actions">
+              <button class="btn-accept" onclick="startEtaSelection(${o.id})">Принять за ${esc(o.price)} ₽</button>
+              <button class="btn-ghost" onclick="startEtaSelection(${o.id}, true)">Предложить другую цену</button>
             </div>
           `}
         </div>
@@ -2973,11 +3042,19 @@ void main(){
   // цена и время. Пока чего-то не хватает — бледная и подсказывает, чего.
   function offerButtonState(id){
     const order = orders.find(o => o.id === id);
-    const price = String(etaPriceDrafts[id] !== undefined ? etaPriceDrafts[id] : (order ? order.price : '')).trim();
+    const counter = etaPriceDrafts[id] !== undefined;
+    const price = String(counter ? etaPriceDrafts[id] : (order?.price ?? '')).trim();
     const minutes = etaSelectedMinutes[id];
-    if(!price) return { text: 'Укажите цену', ready: false };
-    if(!minutes || minutes <= 0) return { text: 'Выберите время подачи', ready: false };
-    return { text: `Предложить ${price} ₽ · ${minutes} мин`, ready: true };
+    if(submittingOffers.has(id)) return { text: 'Отправляем отклик…', ready: false };
+    if(!order || order.status !== 'searching') return { text: 'Заказ недоступен', ready: false };
+    if(!price || !Number.isFinite(Number(price)) || Number(price) < 0){
+      return { text: 'Укажите цену', ready: false };
+    }
+    if(!Number.isInteger(minutes) || minutes <= 0){
+      return { text: 'Выберите время подачи', ready: false };
+    }
+    const action = counter ? 'Предложить' : 'Принять за';
+    return { text: `${action} ${price} ₽ · ${minutes} мин`, ready: true, price, minutes };
   }
 
   function offerButtonHtml(o){
@@ -3011,50 +3088,18 @@ void main(){
     renderDriver();
   }
 
-  // «Принять» без машины открывает экран машины; после сохранения водитель
-  // сразу возвращается к этому заказу и выбирает цену и время.
-  async function startEtaSelection(id){
+  // После добавления машины водитель возвращается к выбранному действию.
+  async function startEtaSelection(id, counter = false){
+    const order = orders.find(o => o.id === id && o.status === 'searching');
+    if(!order || submittingOffers.has(id)) return;
+    delete etaSelectedMinutes[id];
+    if(counter) etaPriceDrafts[id] = '';
+    else delete etaPriceDrafts[id];
     if(!myCar){
       await fetchMyCar();
       if(!myCar){ openCar(id); return; }
     }
     etaSelectingId = id;
-    renderDriver();
-  }
-
-  async function confirmAccept(id, etaMinutes){
-    // Имя берётся из профиля, заданного при регистрации — спрашивать каждый раз
-    // больше не нужно.
-    const order = orders.find(o => o.id === id);
-    const priceInput = document.getElementById('price-input-' + id);
-    const rawPrice = priceInput ? priceInput.value.trim() : '';
-    if(priceInput && rawPrice === ''){
-      alert('Укажите цену');
-      return;
-    }
-    const proposedPrice = rawPrice || order.price;
-
-    etaSelectingId = null;
-    const { error } = await sb.rpc('submit_offer', {
-      p_order_id: id,
-      p_driver_name: driverName,
-      p_price: proposedPrice,
-      p_eta: etaMinutes
-    });
-    if(error && /car required/.test(error.message)){
-      myCar = null;
-      openCar(id);
-      return;
-    }
-    if(error) showBanner('Ошибка: ' + error.message, 'error');
-    else {
-      // Отклик снимает режим «Занят» — так решено сервером (submit_offer),
-      // здесь просто подтягиваем то же самое на экран, не дожидаясь
-      // следующего чтения профилей. Плашку не показываем: человек сейчас
-      // занят ценой, а не настройками.
-      const prev = driverProfiles[driverId];
-      driverProfiles[driverId] = Object.assign({ sum: 0, count: 0 }, prev, { available: true });
-    }
     renderDriver();
   }
 
@@ -3071,20 +3116,40 @@ void main(){
     renderDriver();
   }
 
-  // Единая точка отправки: нажатие "ОК" после выбора цены и времени подачи
   async function confirmAcceptSelected(id){
-    const customInput = document.getElementById('eta-input-' + id);
-    let minutes = etaSelectedMinutes[id];
-    if(!minutes && customInput && customInput.value.trim()){
-      minutes = parseInt(customInput.value, 10);
+    if(etaSelectingId !== id) return;
+    const offer = offerButtonState(id);
+    if(!offer.ready) return;
+    submittingOffers.add(id);
+    updateOfferButton(id);
+    try {
+      const { error } = await sb.rpc('submit_offer', {
+        p_order_id: id,
+        p_driver_name: driverName,
+        p_price: offer.price,
+        p_eta: offer.minutes
+      });
+      if(error){
+        if(/car required/.test(error.message) && etaSelectingId === id){
+          myCar = null;
+          openCar(id);
+        } else {
+          showBanner('Ошибка: ' + error.message, 'error');
+        }
+        return;
+      }
+      if(etaSelectingId === id) etaSelectingId = null;
+      delete etaPriceDrafts[id];
+      delete etaSelectedMinutes[id];
+      const prev = driverProfiles[driverId];
+      driverProfiles[driverId] = Object.assign({ sum: 0, count: 0 }, prev, { available: true });
+      renderDriver();
+    } catch(error){
+      showBanner('Не удалось отправить отклик: ' + error.message, 'error');
+    } finally {
+      submittingOffers.delete(id);
+      updateOfferButton(id);
     }
-    if(!minutes || minutes <= 0){
-      alert('Выберите время подачи');
-      return;
-    }
-    await confirmAccept(id, minutes);
-    delete etaPriceDrafts[id];
-    delete etaSelectedMinutes[id];
   }
 
   // Час после завершения поездки — то же окно, что и на сервере в
@@ -3153,6 +3218,7 @@ void main(){
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-car').hidden = true;
     document.getElementById('view-profile').hidden = true;
+    document.getElementById('view-settings').hidden = true;
     document.getElementById('view-history').hidden = false;
     reportPresence(true);
     renderHistory(true);
@@ -3348,8 +3414,8 @@ void main(){
     ],
     driver: [
       { q: 'Как взять заказ?', a: `
-        <p>Сначала добавьте машину: марку, цвет и госномер. Без машины заказы видно, но принять их нельзя. Приложение попросит об этом при первом нажатии «Принять».</p>
-        <p>Свободные заказы видны в <b>«Ленте заказов»</b>. Нажмите «Принять», оставьте цену пассажира или назовите свою, выберите время подачи и нажмите <b>«ОК»</b>.</p>
+        <p>Сначала добавьте машину: марку, цвет и госномер. Без машины заказы видно, но принять их нельзя. Приложение попросит об этом при первом отклике на заказ.</p>
+        <p>Свободные заказы видны в <b>«Ленте заказов»</b>. Нажмите «Принять за … ₽», чтобы согласиться с ценой пассажира, или «Предложить другую цену». Затем выберите время подачи и подтвердите.</p>
         <p>Пассажир увидит ваше предложение рядом с предложениями других водителей и выберет.</p>` },
       { q: 'Как изменить машину?', a: `
         <p>В меню — <b>«Моя машина»</b>. Новые данные увидят пассажиры в следующих предложениях. Уже отправленные предложения и идущая поездка остаются с прежней машиной.</p>` },
@@ -3387,6 +3453,7 @@ void main(){
     document.getElementById('view-history').hidden = true;
     document.getElementById('view-car').hidden = true;
     document.getElementById('view-profile').hidden = true;
+    document.getElementById('view-settings').hidden = true;
     renderHelp();
     document.getElementById('view-help').hidden = false;
     reportPresence(true);
@@ -3564,7 +3631,7 @@ void main(){
     const cur = myCar || { model: '', color: '', plate: '' };
     const known = CAR_COLORS.some(c => c[0] === cur.color);
     carDraft = { model: cur.model, color: cur.color, other: !!cur.color && !known, plate: cur.plate };
-    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-profile']){
+    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-profile', 'view-settings']){
       document.getElementById(id).hidden = true;
     }
     renderCar();
@@ -3628,7 +3695,7 @@ void main(){
         </div>
 
         <div class="form-error" id="car-error" hidden></div>
-        <button class="btn-primary" id="car-save" onclick="saveCar()">${carReturnOrderId ? 'Сохранить и принять заказ' : 'Сохранить'}</button>
+        <button class="btn-primary" id="car-save" onclick="saveCar()">${carReturnOrderId ? 'Сохранить и вернуться к заказу' : 'Сохранить'}</button>
       </div>
     `;
   }
@@ -3856,9 +3923,20 @@ void main(){
     myPhoto = data;
   }
 
+  function openSettings(){
+    closeMenu();
+    if(fullBanActive()) return;
+    for(const id of ['view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car', 'view-profile']){
+      document.getElementById(id).hidden = true;
+    }
+    document.getElementById('view-settings').hidden = false;
+    reportPresence(false);
+    document.querySelector('main').scrollTop = 0;
+  }
+
   async function openProfile(){
     closeMenu();
-    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car']){
+    for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-car', 'view-settings']){
       document.getElementById(id).hidden = true;
     }
     renderProfile();
@@ -3872,6 +3950,7 @@ void main(){
 
   function closeProfile(){
     document.getElementById('view-profile').hidden = true;
+    document.getElementById('view-settings').hidden = true;
     switchView(currentView);
   }
 
@@ -4296,6 +4375,7 @@ void main(){
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-car').hidden = true;
     document.getElementById('view-profile').hidden = true;
+    document.getElementById('view-settings').hidden = true;
     document.getElementById('view-passenger').hidden = view !== 'passenger';
     document.getElementById('view-driver').hidden = view !== 'driver';
     applyBan();
