@@ -925,6 +925,7 @@
   .swatch{ width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28); }
   .swatch-other{ background: conic-gradient(#d33a3a, #f2c94c, #2f8f4e, #2d55c8, #7a4bc4, #d33a3a); }
   #car-color-other{ margin-top: 8px; }
+  .confirm-sheet select{ width: 100%; padding: 10px; color: var(--text); background: var(--surface); border: 1px solid var(--control-border); border-radius: 10px; font: inherit; }
   .form-error{ color: var(--danger); font-size: var(--fs-s); line-height: 1.5; margin: 0; }
   .field-hint{ color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; margin-top: 6px; }
 
@@ -2673,10 +2674,19 @@ void main(){
     if(error) showBanner('Не удалось создать заказ: ' + error.message, 'error');
   }
 
-  function cancelOrder(id){
-    return sb.rpc('cancel_order', { p_order_id: id })
-      .then(({ error }) => { if(error) showBanner('Ошибка: ' + error.message, 'error'); });
+  async function cancelOrder(id){
+    const result = await confirmSheet({
+      title: 'Отменить заказ?', text: 'Мы прекратим поиск водителя.',
+      okText: 'Отменить заказ', cancelText: 'Продолжить поиск', reasons: PASSENGER_CANCEL_REASONS
+    });
+    if(!result) return;
+    const { error } = await sb.rpc('cancel_order_with_reason', { p_order_id: id, p_reason: result.reason });
+    if(error) showBanner('Не удалось отменить заказ. Проверьте его статус и попробуйте ещё раз.', 'error');
+    fetchOrders();
   }
+
+  const PASSENGER_CANCEL_REASONS = [['plans_changed','Планы изменились'], ['wait_too_long','Долго ждать'], ['other','Другая причина']];
+  const DRIVER_CANCEL_REASONS = [['passenger_absent','Пассажир не вышел'], ['vehicle_issue','Проблема с машиной'], ['other','Другая причина']];
 
   // Отмена, когда водитель уже выбран. Сначала переспрашиваем: вторая сторона
   // уже в пути или ждёт, случайное нажатие дорого обойдётся.
@@ -2697,11 +2707,12 @@ void main(){
       title: 'Отменить поездку?',
       text,
       okText: 'Отменить поездку',
-      cancelText: 'Не отменять'
+      cancelText: 'Не отменять',
+      reasons: role === 'driver' ? DRIVER_CANCEL_REASONS : PASSENGER_CANCEL_REASONS
     });
     if(!ok) return;
 
-    const { error } = await sb.rpc('cancel_order', { p_order_id: id });
+    const { error } = await sb.rpc('cancel_order_with_reason', { p_order_id: id, p_reason: ok.reason });
     if(error){
       // Чаще всего это значит, что пока окно было открыто, поездка уже
       // началась или её отменила другая сторона.
@@ -2717,7 +2728,7 @@ void main(){
 
   // Окно подтверждения снизу экрана. Возвращает true, если человек нажал
   // основную кнопку; нажатие мимо окна — то же, что «Не отменять».
-  function confirmSheet({ title, text, okText, cancelText }){
+  function confirmSheet({ title, text, okText, cancelText, reasons }){
     return new Promise(resolve => {
       const wrap = document.createElement('div');
       wrap.className = 'confirm-overlay';
@@ -2725,6 +2736,11 @@ void main(){
         <div class="confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
           <div class="confirm-title" id="confirm-title">${esc(title)}</div>
           <p class="confirm-text">${esc(text)}</p>
+          ${reasons ? `<label for="confirm-reason">Причина отмены (необязательно)</label>
+            <select id="confirm-reason">
+              <option value="">Не указывать</option>
+              ${reasons.map(([value, label]) => `<option value="${value}">${esc(label)}</option>`).join('')}
+            </select>` : ''}
           <button class="btn-danger" data-act="ok">${esc(okText)}</button>
           <button class="btn-call confirm-no" data-act="no">${esc(cancelText)}</button>
         </div>`;
@@ -2737,7 +2753,10 @@ void main(){
       function onKey(e){ if(e.key === 'Escape') close(false); }
       wrap.addEventListener('click', e => {
         const act = e.target.closest('[data-act]');
-        if(act) close(act.dataset.act === 'ok');
+        if(act){
+          const choice = wrap.querySelector('#confirm-reason');
+          close(act.dataset.act === 'ok' && (choice ? { reason: choice.value || null } : true));
+        }
         else if(e.target === wrap) close(false);
       });
       document.addEventListener('keydown', onKey);
@@ -2898,6 +2917,10 @@ void main(){
     // не даст принять, но на экране это тоже не должно выглядеть как вариант.
     // Заблокированный водитель ленту не видит, но идущую поездку довозит.
     const banned = driverBanned();
+    if(!isBusy && !banned && !myCar){
+      setHtml(el, driverRegistrationCard());
+      return;
+    }
     const myOffers = (isBusy || banned) ? [] : orders.filter(o => o.status === 'searching' && myOfferedIds.has(o.id));
     const pending = (isBusy || banned) ? [] : orders.filter(o => o.status === 'searching' && !myOfferedIds.has(o.id));
     const mine = [...myOffers, ...enRoute, ...arrived, ...inProgress];
@@ -2910,7 +2933,7 @@ void main(){
     let html = `<h1 class="view-title driver-title">${headline}</h1>`;
 
     if(banned) html += bannedDriverCard();
-    else if(!isBusy) html += driverNeedsCar() ? carNeededCard() : driverAvailabilityBlock();
+    else if(!isBusy) html += driverAvailabilityBlock();
 
     const ratingsHtml = needsRating.length ? `<div class="order-list">
       ${needsRating.map(o => `
@@ -3097,7 +3120,7 @@ void main(){
     else delete etaPriceDrafts[id];
     if(!myCar){
       await fetchMyCar();
-      if(!myCar){ openCar(id); return; }
+      if(!myCar) return;
     }
     etaSelectingId = id;
     renderDriver();
@@ -3130,9 +3153,10 @@ void main(){
         p_eta: offer.minutes
       });
       if(error){
-        if(/car required/.test(error.message) && etaSelectingId === id){
-          myCar = null;
-          openCar(id);
+        if(/car required|driver approval required/.test(error.message)){
+          etaSelectingId = null;
+          showToast('Для откликов нужен одобренный автомобиль');
+          fetchMyCar();
         } else {
           showBanner('Ошибка: ' + error.message, 'error');
         }
@@ -3529,14 +3553,16 @@ void main(){
   }
 
   // ---------- машина водителя ----------
-  // Без машины водитель видит ленту, но принять заказ не может (это
-  // проверяет и база, в submit_offer). Машина копируется в предложение,
+  // Первая машина завершает регистрацию водителя. Наличие машины
+  // проверяет и база в submit_offer. Машина копируется в предложение,
   // а после выбора — в заказ: пассажир видит её в предложении и крупно,
   // пока ждёт. Форма — отдельный экран, как «Помощь»: окно снизу на iPhone
   // закрывает клавиатура.
+  let driverApplication = null;
+  let driverApplicationRequest = null;
   let myCar = null;            // { model, color, plate } или null
-  let myCarLoaded = false;     // знаем ли уже ответ базы (до этого плашку не показываем)
-  let carReturnOrderId = null; // заказ, к которому вернуться после сохранения
+  let myCarLoaded = false;
+  let myCarLoadFailed = false;
   let carDraft = null;         // то, что сейчас в форме
 
   const CAR_BRANDS = ['Toyota', 'Lada', 'Honda', 'Nissan', 'Mitsubishi', 'Hyundai', 'Kia', 'Subaru', 'Mazda', 'УАЗ'];
@@ -3599,36 +3625,75 @@ void main(){
     </span>`;
   }
 
-  async function fetchMyCar(){
-    if(!sb || !myProfile) return;
-    const { data, error } = await sb.rpc('my_driver_car');
-    if(error){ console.error('my_driver_car:', error.message); return; }
-    const row = Array.isArray(data) ? data[0] : data;
-    myCar = row ? { model: row.car_model, color: row.car_color, plate: row.car_plate } : null;
+  function applyDriverApplication(application){
+    driverApplication = application;
+    myCar = application.status === 'approved'
+      ? { model: application.model, color: application.color, plate: application.plate }
+      : null;
     myCarLoaded = true;
-    renderDriver();
+    myCarLoadFailed = false;
   }
 
-  function driverNeedsCar(){ return myCarLoaded && !myCar; }
+  function fetchMyCar(){
+    if(!sb || !myProfile || driverApplicationRequest) return driverApplicationRequest;
+    const previous = driverApplication;
+    myCarLoadFailed = false;
+    if(!myCarLoaded) renderDriver();
+    driverApplicationRequest = (async () => {
+      try {
+        const { data, error } = await sb.rpc('my_driver_application');
+        if(error) throw error;
+        if(driverApplication !== previous) return;
+        applyDriverApplication(data);
+        if(previous?.status !== 'approved' && data.status === 'approved'){
+          fetchOrders();
+          if(previous) fetchProfiles();
+        }
+      } catch(error){
+        if(driverApplication !== previous) return;
+        console.error('my_driver_application:', error.message);
+        if(!myCarLoaded) myCarLoadFailed = true;
+      } finally {
+        driverApplicationRequest = null;
+        renderDriver();
+      }
+    })();
+    return driverApplicationRequest;
+  }
 
-  function carNeededCard(){
-    return `
-      <div class="order-card">
-        <div class="support-title">Чтобы принять заказ, добавьте машину</div>
-        <p class="support-text">Марку и цвет пассажир увидит в вашем предложении, а госномер — когда выберет вас.</p>
-        <button class="btn-primary" onclick="openCar(null)">Добавить машину</button>
-      </div>`;
+  function driverRegistrationCard(){
+    let content;
+    const status = driverApplication?.status;
+    if(status === 'pending'){
+      content = `<div class="support-title">Заявка на проверке</div>
+        <p class="support-text">После одобрения здесь откроются заказы.</p>
+        <button class="btn-ghost" onclick="fetchMyCar()">Проверить статус</button>`;
+    } else if(status === 'returned'){
+      content = `<div class="support-title">Исправьте данные заявки</div>
+        <p class="support-text">${esc(driverApplication.reason)}</p>
+        <button class="btn-primary" onclick="openCar()">Исправить заявку</button>`;
+    } else if(myCarLoaded){
+      content = `<p class="support-text">Добавьте автомобиль и отправьте заявку. Заказы откроются после одобрения.</p>
+        <button class="btn-primary" onclick="openCar()">Подать заявку</button>`;
+    } else if(myCarLoadFailed){
+      content = `<p class="support-text" role="alert">Не удалось загрузить заявку. Проверьте интернет и попробуйте ещё раз.</p>
+        <button class="btn-primary" onclick="fetchMyCar()">Повторить</button>`;
+    } else {
+      content = '<p class="support-text" role="status">Проверяем заявку…</p>';
+    }
+    return `<h1 class="view-title driver-title">Регистрация водителя</h1><div class="order-card">${content}</div>`;
   }
 
   function openCarFromMenu(){
     closeMenu();
-    openCar(null);
+    openCar();
   }
 
-  function openCar(returnOrderId){
-    carReturnOrderId = returnOrderId;
+  function openCar(){
+    if(!myCarLoaded || driverApplication?.status === 'pending') return;
     etaSelectingId = null;
-    const cur = myCar || { model: '', color: '', plate: '' };
+    const { model = '', color = '', plate = '' } = driverApplication || {};
+    const cur = { model, color, plate };
     const known = CAR_COLORS.some(c => c[0] === cur.color);
     carDraft = { model: cur.model, color: cur.color, other: !!cur.color && !known, plate: cur.plate };
     for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-profile', 'view-settings']){
@@ -3643,7 +3708,6 @@ void main(){
 
   function closeCar(){
     document.getElementById('view-car').hidden = true;
-    carReturnOrderId = null;
     switchView(currentView);
   }
 
@@ -3652,7 +3716,7 @@ void main(){
     document.getElementById('view-car').innerHTML = `
       <div class="history-head">
         <button class="history-back" onclick="closeCar()">← Назад</button>
-        <h1 class="view-title">${myCar ? 'Моя машина' : 'Добавьте машину'}</h1>
+        <h1 class="view-title">${myCar ? 'Изменить автомобиль' : 'Автомобиль водителя'}</h1>
       </div>
       <p class="history-summary">Марку и цвет пассажир увидит в вашем предложении, а госномер — крупно на экране, когда выберет вас.</p>
 
@@ -3694,8 +3758,8 @@ void main(){
           <div class="field-hint">Буква, три цифры, две буквы и регион.</div>
         </div>
 
-        <div class="form-error" id="car-error" hidden></div>
-        <button class="btn-primary" id="car-save" onclick="saveCar()">${carReturnOrderId ? 'Сохранить и вернуться к заказу' : 'Сохранить'}</button>
+        <div class="form-error" id="car-error" role="alert" hidden></div>
+        <button class="btn-primary" id="car-save" onclick="saveCar()">Отправить заявку</button>
       </div>
     `;
   }
@@ -3749,42 +3813,34 @@ void main(){
     carError('');
 
     const btn = document.getElementById('car-save');
+    const draft = carDraft;
     btn.disabled = true;
-    const wasFirst = !myCar;
-    const { data, error } = await sb.rpc('save_driver_car', { p_model: model, p_color: color, p_plate: plate });
-    btn.disabled = false;
-    if(error){
+    const previous = driverApplication;
+    try {
+      const { error } = await sb.rpc('submit_driver_application', { p_model: model, p_color: color, p_plate: plate });
+      if(error) throw error;
+    } catch(error){
+      if(draft !== carDraft || document.getElementById('view-car').hidden) return;
       const msg = error.message || '';
       carError(/bad plate/.test(msg) ? 'Проверьте госномер: буква, три цифры, две буквы и регион — например, А123ВС 14.'
         : /bad model/.test(msg) ? 'Укажите марку и модель, например Toyota Corolla.'
         : /bad color/.test(msg) ? 'Выберите цвет машины.'
-        : 'Не удалось сохранить. Проверьте интернет и попробуйте ещё раз.');
+        : /active trip/.test(msg) ? 'Завершите текущую поездку, чтобы изменить автомобиль.'
+        : /already pending/.test(msg) ? 'Заявка уже на проверке. Вернитесь и обновите её статус.'
+        : 'Не удалось отправить заявку. Проверьте интернет и попробуйте ещё раз.');
       return;
+    } finally {
+      btn.disabled = false;
     }
-    const row = Array.isArray(data) ? data[0] : data;
-    myCar = row ? { model: row.car_model, color: row.car_color, plate: row.car_plate } : { model, color, plate };
-    myCarLoaded = true;
-
-    // Первая машина включает уведомления о новых заказах (это делает база);
-    // на экране показываем то же самое сразу.
-    if(wasFirst && !driverBanned()){
-      const prev = driverProfiles[driverId];
-      driverProfiles[driverId] = Object.assign({ sum: 0, count: 0 }, prev, { available: true });
+    const unchanged = previous?.status === 'approved'
+      && previous.model === model && previous.color === color && previous.plate === plate;
+    if(!unchanged) applyDriverApplication({ status:'pending', model, color, plate });
+    if(draft === carDraft && !document.getElementById('view-car').hidden){
+      closeCar();
+      showToast(unchanged ? 'Данные автомобиля уже одобрены' : 'Заявка отправлена');
     }
-
-    const orderId = carReturnOrderId;
-    closeCar();
-    const order = orderId && orders.find(o => o.id === orderId && o.status === 'searching');
-    if(order){
-      etaSelectingId = orderId;
-      renderDriver();
-      const card = document.getElementById('req-' + orderId);
-      if(card) card.scrollIntoView({ block: 'center' });
-      showToast('Машина сохранена');
-    } else {
-      if(orderId) showToast('Машина сохранена. Этот заказ уже забрали', 3000);
-      else showToast(wasFirst ? 'Машина добавлена. Уведомления о новых заказах включены' : 'Машина сохранена', 3000);
-    }
+    renderDriver();
+    fetchMyCar();
   }
 
   // ---------- фото профиля ----------
@@ -4324,9 +4380,9 @@ void main(){
       ? `${STAR_INLINE}${avg.toFixed(1)} · ${count} ${pluralTrips(count)}`
       : 'Пока нет оценок';
     document.getElementById('menu-role-note').textContent = isDriver ? 'Вы водитель' : 'Вы пассажир';
-    document.getElementById('menu-role-switch').textContent = isDriver ? 'Стать пассажиром' : 'Стать водителем';
+    document.getElementById('menu-role-switch').textContent = isDriver ? 'Стать пассажиром' : myCar ? 'Режим водителя' : 'Стать водителем';
     const carItem = document.getElementById('menu-car');
-    carItem.hidden = !isDriver;
+    carItem.hidden = !isDriver || !myCarLoaded || driverApplication?.status === 'pending' || driverBanned();
     carItem.textContent = myCar ? 'Моя машина' : 'Добавить машину';
   }
 
@@ -4370,7 +4426,7 @@ void main(){
   function switchView(view){
     currentView = view;
     saveRole(view);
-    if(view === 'driver') ensureDriverProfile();
+    if(view === 'driver'){ ensureDriverProfile(); fetchMyCar(); }
     document.getElementById('view-history').hidden = true;
     document.getElementById('view-help').hidden = true;
     document.getElementById('view-car').hidden = true;
@@ -4383,6 +4439,11 @@ void main(){
   }
 
   init();
+
+  setInterval(() => {
+    if(appStarted && currentView === 'driver' && driverApplication?.status === 'pending'
+      && document.visibilityState === 'visible' && !document.getElementById('view-driver').hidden) fetchMyCar();
+  }, 30000);
 
   setInterval(() => {
     if(isConfigured){

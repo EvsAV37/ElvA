@@ -2,33 +2,22 @@
 <html lang="ru">
 <head>
 <meta charset="UTF-8">
-<style>html, body{ background: #03070a; }</style>
+<style>html, body{ background: #17191b; }</style>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
-<meta name="theme-color" content="#03070a">
+<meta name="theme-color" content="#17191b">
 <title>Админ-панель</title>
-<link rel="preload" href="elva-manrope.woff2" as="font" type="font/woff2" crossorigin>
-<link rel="preload" href="elva-unbounded.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="stylesheet" href="fonts/onest.css">
 <style>
-  @font-face{
-    font-family: 'Manrope';
-    src: url('elva-manrope.woff2') format('woff2');
-    font-weight: 400 700; font-style: normal; font-display: block;
-  }
-  @font-face{
-    font-family: 'Unbounded';
-    src: url('elva-unbounded.woff2') format('woff2');
-    font-weight: 500 700; font-style: normal; font-display: block;
-  }
   :root{
-    --night: #10142A;
-    --surface: #1A2044;
-    --surface-2: #232B58;
-    --ice: #8FE0E8;
-    --ice-dim: #5C7A8A;
+    --night: #17191b;
+    --surface: #202426;
+    --surface-2: #282e30;
+    --ice: #83dfaa;
+    --ice-dim: #75a990;
     --amber: #F2A65A;
     --text: #EDEFF5;
-    --muted: #8089AC;
+    --muted: #a1ada8;
     --success: #7FD9A6;
     --danger: #E8737B;
     --line: rgba(237,239,245,0.09);
@@ -46,18 +35,29 @@
   }
   *{ box-sizing: border-box; }
   [hidden]{ display: none !important; }
-  html{ background: #03070a; -webkit-text-size-adjust: 100%; }
+  html{ background: #17191b; -webkit-text-size-adjust: 100%; }
   body{
     margin: 0; min-height: 100vh;
     background: var(--night);
     color: var(--text);
-    font-family: 'Manrope', system-ui, sans-serif;
+    font-family: 'Onest', system-ui, sans-serif;
     font-size: var(--fs-m); line-height: 1.5;
     padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px);
   }
+
+  .dispatch-tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(min(100%, 145px),1fr)); gap:10px; }
+  .dispatch-tile{ display:grid; gap:2px; text-align:left; padding:12px; border:1px solid var(--line); border-radius:var(--r-in); background:var(--surface); color:var(--text); font:inherit; cursor:pointer; }
+  .dispatch-tile strong{ color:var(--success); font-size:var(--fs-xl); }
+  .dispatch-tile:hover,.dispatch-tile:focus-visible{ border-color:var(--success); }
+  .dispatch-actions{ display:flex; flex-wrap:wrap; gap:8px; }
+  .dispatch-detail{ margin:8px 0; }
+  .dispatch-timeline{ list-style:none; padding:0; margin:6px 0; }
+  .dispatch-timeline li{ display:flex; justify-content:space-between; flex-wrap:wrap; gap:6px 12px; padding:7px 0; border-top:1px solid var(--line); }
+  .dispatch-timeline li span{ color:var(--muted); }
+  #orders-filter{ background:var(--surface); color:var(--text); min-height:44px; border:1px solid var(--line); border-radius:var(--r-in); padding:8px; font:inherit; }
   .shell{ max-width: 560px; margin: 0 auto; padding: 20px 16px 40px; }
   h1{
-    font-family: 'Unbounded', sans-serif; font-weight: 600;
+    font-family: 'Onest', system-ui, sans-serif; font-weight: 600;
     font-size: var(--fs-xl); line-height: 1.25; letter-spacing: -0.01em; margin: 0;
   }
   h2{ font-size: var(--fs-l); font-weight: 700; line-height: 1.3; margin: 0; }
@@ -199,7 +199,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-in);
     padding: 16px; display: flex; flex-direction: column; gap: 12px; min-width: 0;
   }
-  .order.stuck{ border-color: rgba(232,115,123,0.55); background: #241f40; }
+  .order.stuck{ border-color: rgba(232,115,123,0.55); background: #29292d; }
   .order-route{ font-weight: 700; line-height: 1.35; }
   .order-meta{ font-size: var(--fs-s); color: var(--muted); line-height: 1.45; }
   .order-route + .order-meta, .order-meta + .order-meta{ margin-top: 2px; }
@@ -216,7 +216,7 @@
     background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-in);
     padding: 12px 14px; min-width: 0;
   }
-  .tile .num{ font-family: 'Unbounded', sans-serif; font-weight: 600; font-size: var(--fs-l); line-height: 1.3; }
+  .tile .num{ font-family: 'Onest', system-ui, sans-serif; font-weight: 600; font-size: var(--fs-l); line-height: 1.3; }
   .tile .lbl{ font-size: var(--fs-s); color: var(--muted); margin-top: 2px; }
   .tile .sub{ font-size: var(--fs-xs); color: var(--muted); margin-top: 4px; line-height: 1.4; }
   .tile.good .num{ color: var(--success); }
@@ -244,7 +244,7 @@
   .av-h img, .av-h .av-letter{ width: 64px; height: 64px; border-radius: 50%; object-fit: cover; flex: none; }
   .av-h .av-letter{
     display: flex; align-items: center; justify-content: center;
-    background: rgba(143,224,232,0.16); color: var(--ice); font-weight: 800; font-size: 28px;
+    background: rgba(131,223,170,0.16); color: var(--ice); font-weight: 800; font-size: 28px;
   }
   .reasons{ display: flex; flex-direction: column; gap: 8px; }
   .reasons .chip{ text-align: left; width: 100%; }
@@ -332,7 +332,7 @@
     .orders-list{ display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; align-items: start; }
     .row.click{ padding-left: 12px; padding-right: 12px; margin: 0 -12px; border-radius: var(--r-in); }
     .row.click:hover{ background: rgba(255,255,255,0.03); }
-    .row.click.sel{ background: rgba(143,224,232,0.08); }
+    .row.click.sel{ background: rgba(131,223,170,0.08); }
     .tiles{ grid-template-columns: repeat(3, 1fr); }
     .chart{ height: 200px; }
     .confirm-overlay{ align-items: center; }
@@ -522,7 +522,7 @@
     me = { email: row.email, role: row.role || 'disp', name: row.name || '' };
     $('who').innerHTML = '<span>' + esc(me.email) + ' · ' + (isMain() ? 'главный' : 'диспетчер')
       + '</span><button class="link" onclick="doLogout()">Выйти</button>';
-    if(!visibleTabs().some(t => t.id === currentTab)) currentTab = 'people';
+    if(!visibleTabs().some(t => t.id === currentTab)) currentTab = 'dispatch';
     await loadMeId();
     show('screen-panel');
     renderTabs();
@@ -531,8 +531,9 @@
   }
 
   // ---------- вкладки ----------
-  // Люди, Заказы и Цифры появятся в следующих частях.
   const TABS = [
+    { id: 'dispatch', title: 'Пульт', render: renderDispatch },
+    { id: 'applications', title: 'Заявки водителей', render: renderApplications },
     { id: 'people',  title: 'Люди',   render: renderPeople },
     { id: 'orders',  title: 'Заказы', render: renderOrders },
     { id: 'photos',  title: 'Фото',   render: renderPhotos },
@@ -541,7 +542,8 @@
     { id: 'admins',  title: 'Админы', render: renderAdmins, main: true },
     { id: 'account', title: 'Пароль', render: renderAccount }
   ];
-  let currentTab = 'people';
+  let currentTab = 'dispatch';
+  let pendingApplications = null;
   const isMain = () => me.role === 'main';
   // Журнал и Админы — только главному (база всё равно не отдаст их диспетчеру).
   const visibleTabs = () => TABS.filter(t => !t.main || isMain());
@@ -550,12 +552,14 @@
     $('tabs').innerHTML = visibleTabs().map(t =>
       `<button class="tab ${t.id === currentTab ? 'active' : ''}" onclick="openTab('${t.id}')">${t.title}${
         t.id === 'photos' && photoSettings && photoSettings.check && photoSettings.pending
-          ? `<span class="count">${photoSettings.pending}</span>` : ''}</button>`).join('');
+          ? `<span class="count">${photoSettings.pending}</span>`
+          : t.id === 'applications' && pendingApplications ? `<span class="count">${pendingApplications}</span>` : ''}</button>`).join('');
   }
   function openTab(id){
     const tab = visibleTabs().find(t => t.id === id) || TABS[0];
     currentTab = tab.id;
     clearInterval(ordersTimer);
+    clearTimeout(dispatchTimer);
     renderTabs();
     $('tab-body').innerHTML = '';
     tab.render();
@@ -564,8 +568,167 @@
     $('tab-body').innerHTML = `<div class="card soon">${esc(text)}</div>`;
   }
 
+  const APPLICATION_FILTERS = { pending:'На проверке', returned:'На исправлении', approved:'Одобрены' };
+  const APPLICATION_PAGE_SIZE = 20;
+  let applicationFilter = 'pending';
+  let applicationPage = 0;
+  let applicationReviewInFlight = false;
+
+  function selectApplicationFilter(status){
+    applicationFilter = status;
+    applicationPage = 0;
+    renderApplications();
+  }
+
+  function openPendingApplications(){
+    applicationFilter = 'pending'; applicationPage = 0; openTab('applications');
+  }
+
+  function changeApplicationPage(delta){
+    applicationPage = Math.max(0, applicationPage + delta);
+    renderApplications();
+  }
+
+  async function renderApplications(){
+    const body = $('tab-body');
+    body.innerHTML = `<section class="card">
+      <div class="orders-head"><h2>Заявки водителей</h2><button class="link" onclick="renderApplications()">Обновить</button></div>
+      <div class="chips cols3">${Object.entries(APPLICATION_FILTERS).map(([status,label]) =>
+        `<button class="chip ${status === applicationFilter ? 'on' : ''}" aria-pressed="${status === applicationFilter}" onclick="selectApplicationFilter('${status}')">${label}</button>`
+      ).join('')}</div>
+      <div id="applications-list" role="status">Загружаем…</div>
+    </section>`;
+    const list = $('applications-list');
+    const { data, error } = await sb.rpc('admin_driver_applications', {
+      p_status: applicationFilter, p_limit: APPLICATION_PAGE_SIZE, p_offset: applicationPage * APPLICATION_PAGE_SIZE
+    });
+    if(!list.isConnected) return;
+    if(error){ list.textContent = 'Не удалось загрузить заявки. Попробуйте обновить.'; return; }
+    pendingApplications = data.pending;
+    renderTabs();
+    list.innerHTML = (data.items.length ? `<div class="orders-list">${data.items.map(a => `<article class="order">
+      <div class="orders-head"><strong>${esc(a.name || 'Без имени')}</strong><span class="tag">${esc(APPLICATION_FILTERS[a.status])}</span></div>
+      <div class="order-meta">${esc(a.model)} · ${esc(a.color)} · <strong>${esc(a.plate)}</strong></div>
+      <div class="order-meta">${esc(a.phone || '—')} · ${esc(fmtTime(a.submitted_at))}</div>
+      ${a.reason ? `<div class="note">${esc(a.reason)}</div>` : ''}
+      ${a.status === 'pending' ? `<div class="dispatch-actions">
+        <button class="btn-primary" onclick="reviewDriver('${esc(a.profile_id)}', ${a.revision}, true)">Одобрить</button>
+        <button class="btn-ghost" onclick="reviewDriver('${esc(a.profile_id)}', ${a.revision}, false)">Вернуть</button>
+      </div>` : ''}
+    </article>`).join('')}</div>` : '<p class="muted">Заявок с таким статусом пока нет.</p>')
+      + `<div class="dispatch-actions">
+        ${applicationPage ? '<button class="btn-ghost" onclick="changeApplicationPage(-1)">Назад</button>' : ''}
+        ${(applicationPage + 1) * APPLICATION_PAGE_SIZE < data.total ? '<button class="btn-ghost" onclick="changeApplicationPage(1)">Далее</button>' : ''}
+      </div>`;
+  }
+
+  async function reviewDriver(profile, revision, approve){
+    if(applicationReviewInFlight) return;
+    applicationReviewInFlight = true;
+    try {
+      const result = await confirmSheet({
+        title: approve ? 'Одобрить заявку?' : 'Вернуть на исправление?',
+        text: approve ? 'После одобрения водитель увидит заказы и сможет на них откликаться.'
+          : 'Водитель увидит комментарий в приложении и сможет отправить заявку повторно.',
+        okText: approve ? 'Одобрить' : 'Вернуть заявку', cancelText: 'Закрыть',
+        reason: !approve, reasonLabel: 'Что нужно исправить (увидит водитель)'
+      });
+      if(!result) return;
+      const { error } = await sb.rpc('admin_review_driver', {
+        p_profile: profile, p_revision: revision, p_approve: approve, p_reason: result.reason || null
+      });
+      if(error) showToast(error.message === 'application changed' ? 'Заявка уже изменилась. Список обновлён.' : 'Не удалось сохранить решение.');
+      else showToast(approve ? 'Заявка одобрена' : 'Заявка возвращена');
+      if(currentTab === 'applications') await renderApplications();
+    } finally { applicationReviewInFlight = false; }
+  }
+
+  let dispatchTimer = null;
+  let ordersFilter = 'all';
+  const DISPATCH_FILTERS = { all:'Все', searching:'Поиск водителя', stuck:'Зависшие', pickup:'Подача', in_progress:'В пути' };
+
+  function setOrdersFilter(filter){
+    ordersFilter = filter;
+    $('orders-filter').value = filter;
+    renderOrders();
+  }
+
+  function showDispatchOrders(filter){
+    ordersFilter = filter;
+    openTab('orders');
+  }
+
+  async function renderDispatch(){
+    clearTimeout(dispatchTimer);
+    if(!$('dispatch-tiles')){
+      $('tab-body').innerHTML = `<section class="card">
+        <div class="orders-head"><h2>Пульт диспетчера</h2><button class="link" onclick="renderDispatch()">Обновить</button></div>
+        <div class="dispatch-tiles" id="dispatch-tiles" aria-live="polite">Загружаем…</div>
+      </section>
+      <section class="card">
+        <h2>Поиск заказа</h2><form class="search-row" onsubmit="event.preventDefault(); findDispatchOrder()">
+          <input id="dispatch-order-id" aria-label="Номер заказа" inputmode="numeric" placeholder="Номер заказа" maxlength="19">
+          <button class="btn-primary" type="submit">Найти</button>
+        </form><div id="dispatch-order-detail"></div>
+      </section>`;
+    }
+    const box = $('dispatch-tiles');
+    const { data, error } = await sb.rpc('admin_dispatch_summary');
+    if(!box.isConnected) return;
+    if(error){ box.textContent = 'Не удалось загрузить сводку.'; return; }
+    pendingApplications = data.pending;
+    renderTabs();
+    box.innerHTML = `<button class="dispatch-tile" onclick="openPendingApplications()"><strong>${data.pending}</strong>Заявки на проверке</button>`
+      + ['stuck','searching','pickup','in_progress'].map(key =>
+        `<button class="dispatch-tile" onclick="showDispatchOrders('${key}')"><strong>${data[key]}</strong>${DISPATCH_FILTERS[key]}</button>`
+      ).join('');
+    dispatchTimer = setTimeout(() => { if(currentTab === 'dispatch') renderDispatch(); }, 30000);
+  }
+
+  function findDispatchOrder(){
+    const input = $('dispatch-order-id');
+    const id = input.value.trim();
+    if(!/^[1-9]\d{0,18}$/.test(id) || BigInt(id) > 9223372036854775807n){
+      $('dispatch-order-detail').textContent = 'Введите номер заказа.';
+      return;
+    }
+    showOrderDetail(id, 'dispatch-order-detail');
+  }
+
+  const ORDER_EVENTS = { created:'Заказ создан', first_offer:'Первый отклик', accepted:'Водитель выбран',
+    arrived:'Водитель на месте', in_progress:'Поездка началась', done:'Поездка завершена', cancelled:'Заказ отменён' };
+  const CANCEL_REASONS = { plans_changed:'Планы изменились', wait_too_long:'Долго ждать', passenger_absent:'Пассажир не вышел',
+    vehicle_issue:'Проблема с машиной', other:'Другая причина', support_note:'Отмена с комментарием поддержки', unspecified:'Причина не указана' };
+  const CANCEL_ACTORS = { passenger:'Пассажир', driver:'Водитель', admin:'Поддержка' };
+  let orderDetailRequest = 0;
+
+  async function showOrderDetail(id, target){
+    const box = $(target);
+    const request = ++orderDetailRequest;
+    box.textContent = 'Загружаем заказ…';
+    const { data: o, error } = await sb.rpc('admin_order_detail', { p_order_id: id });
+    if(!box.isConnected || request !== orderDetailRequest) return;
+    if(error || !o){ box.textContent = error ? 'Не удалось загрузить заказ.' : 'Заказ с таким номером не найден.'; return; }
+    box.innerHTML = `<article class="order dispatch-detail">
+      <div class="orders-head"><h2>Заказ №${esc(o.id)}</h2><button class="link" onclick="closeOrderDetail('${target}')">Закрыть</button></div>
+      <div class="order-route">${esc(o.from_address)} → ${esc(o.to_address)}</div>
+      <div class="order-meta">${esc(ORDER_STATUS[o.status] || ORDER_EVENTS[o.status] || o.status)} · ${esc(o.price)} ₽
+        ${o.eta ? ` · подача ${esc(o.eta)} мин` : ''}${o.car_plate ? ` · ${esc(o.car_plate)}` : ''}</div>
+      <div>${personLink(o.passenger_id,o.passenger,null,'Пассажир')}</div><div>${personLink(o.driver_id,o.driver,null,'Водитель')}</div>
+      ${o.status === 'cancelled' ? `<div class="note">Отменил: ${esc(CANCEL_ACTORS[o.cancelled_by] || 'Нет данных')} · ${esc(o.admin_reason || CANCEL_REASONS[o.cancel_reason] || 'Причина не указана')}</div>` : ''}
+      <ol class="dispatch-timeline">${o.events.map(e => `<li><strong>${esc(ORDER_EVENTS[e.kind] || e.kind)}</strong><span>${esc(fmtTime(e.at))}</span></li>`).join('')}</ol>
+    </article>`;
+  }
+
+  function closeOrderDetail(target){
+    orderDetailRequest++;
+    $(target).textContent = '';
+  }
+
   // ---------- журнал ----------
   const ACTION_NAMES = {
+    driver_application_approved: 'Одобрил заявку водителя',
+    driver_application_returned: 'Вернул заявку водителя',
     login: 'Вход в панель',
     password_changed: 'Сменил пароль',
     view_person: 'Открыл карточку',
@@ -627,10 +790,10 @@
     $('tab-body').innerHTML = `<div class="people-split"><div id="people-left"><div class="card">
       <h2>Поиск человека</h2>
       <div class="search-row">
-        <input id="p-q" type="search" placeholder="Номер или имя" autocomplete="off" value="${esc(peopleQuery)}">
+        <input id="p-q" type="search" placeholder="Телефон, имя или госномер" autocomplete="off" value="${esc(peopleQuery)}">
         <button class="btn-primary" onclick="doSearch()">Найти</button>
       </div>
-      <div class="note plain">Номер можно в любом виде или последние цифры, имя — частью.</div>
+      <div class="note plain">Телефон можно ввести целиком или по последним цифрам, имя — частью. Госномер вводится целиком.</div>
       <div id="p-results"></div>
     </div></div><div id="people-right">${isWide()
       ? '<div class="card people-empty">Найдите человека и выберите его в списке слева.</div>' : ''}</div></div>`;
@@ -645,7 +808,9 @@
     const box = $('p-results');
     if(q.length < 2){ box.innerHTML = '<div class="msg error">Введите хотя бы 2 символа.</div>'; return; }
     box.innerHTML = '<div class="msg muted">Ищем…</div>';
-    const { data, error } = await sb.rpc('admin_search_people', { p_q: q });
+    const isPlate = /^[A-ZА-Я]\d{3}[A-ZА-Я]{2}\d{2,3}$/i.test(q.replace(/\s/g, ''));
+    const { data, error } = await (isPlate ? sb.rpc('admin_find_driver_by_plate', { p_plate: q }) : sb.rpc('admin_search_people', { p_q: q }));
+    if(!box.isConnected || q !== peopleQuery) return;
     if(error){ box.innerHTML = `<div class="msg error">Ошибка: ${esc(error.message)}</div>`; return; }
     peopleResults = data;
     showResults(data);
@@ -919,6 +1084,7 @@
     in_progress: 'В пути'
   };
   let ordersTimer = null;
+  let activeOrdersRequest = 0;
 
   function ago(ts){
     const min = Math.max(0, Math.round((Date.now() - Date.parse(ts)) / 60000));
@@ -934,20 +1100,26 @@
         <div class="orders-head"><h2>Активные заказы</h2>
           <button class="link" onclick="renderOrders()">Обновить</button></div>
         <div class="note plain">Красным — зависшие: поиск дольше 30 мин, водитель едет или ждёт дольше 2 ч, в пути дольше 3 ч.</div>
+        <label for="orders-filter">Показать</label><select id="orders-filter" onchange="setOrdersFilter(this.value)">
+          ${Object.entries(DISPATCH_FILTERS).map(([key,label]) => `<option value="${key}" ${ordersFilter === key ? 'selected' : ''}>${label}</option>`).join('')}
+        </select><div id="orders-order-detail"></div>
         <div id="orders-list" class="muted small">Загружаем…</div>
       </div>`;
     }
-    const { data, error } = await sb.rpc('admin_active_orders');
     const box = $('orders-list');
-    if(!box) return;
+    const request = ++activeOrdersRequest;
+    const { data, error } = await sb.rpc('admin_active_orders');
+    if(!box.isConnected || request !== activeOrdersRequest) return;
     if(error){ box.textContent = 'Ошибка: ' + error.message; return; }
     box.classList.remove('muted', 'small');
-    if(!data.length){
-      box.innerHTML = '<div class="muted">Сейчас активных заказов нет.</div>';
+    const filtered = data.filter(o => ordersFilter === 'all'
+      || (ordersFilter === 'stuck' ? o.stuck : ordersFilter === 'pickup' ? ['accepted','arrived'].includes(o.status) : o.status === ordersFilter));
+    if(!filtered.length){
+      box.innerHTML = '<div class="muted">Заказов с таким статусом сейчас нет.</div>';
     } else {
       const stuck = data.filter(o => o.stuck).length;
       box.innerHTML = (stuck ? `<div class="stuck-badge small" style="margin-bottom:12px">Зависших: ${stuck}</div>` : '')
-        + `<div class="orders-list">` + data.map(orderRow).join('') + `</div>`;
+        + `<div class="orders-list">` + filtered.map(orderRow).join('') + `</div>`;
     }
     ordersTimer = setInterval(() => { if(currentTab === 'orders') renderOrders(); else clearInterval(ordersTimer); }, 30000);
   }
@@ -973,6 +1145,7 @@
         <div>${o.driver_id ? personLink(o.driver_id, o.driver_name, o.driver_phone, 'Водитель') : '<span class="muted">Водитель ещё не выбран</span>'}</div>
       </div>
       <div class="btn-stack">
+        <button class="btn-call" onclick="showOrderDetail('${esc(o.id)}', 'orders-order-detail'); $('orders-order-detail').scrollIntoView({block:'nearest'})">Карточка заказа</button>
         ${o.status !== 'searching' ? `<button class="btn-call" onclick="adminCompleteOrder(${o.id})">Завершить как выполненный</button>` : ''}
         <button class="btn-ghost" onclick="adminCancelOrder(${o.id})">Отменить заказ</button>
       </div>
@@ -1021,9 +1194,9 @@
         `<button class="chip ${statsDays === d ? 'on' : ''}" onclick="statsDays=${d};renderStats()">${t}</button>`).join('')}</div>
       <div id="stats-body" class="muted small">Считаем…</div>
     </div>`;
-    const { data, error } = await sb.rpc('admin_stats', { p_days: statsDays });
     const box = $('stats-body');
-    if(!box) return;
+    const { data, error } = await sb.rpc('admin_stats', { p_days: statsDays });
+    if(!box.isConnected) return;
     if(error){ box.textContent = 'Ошибка: ' + error.message; return; }
     box.classList.remove('muted', 'small');
     const o = data.orders, pp = data.people, now = data.now;
@@ -1064,6 +1237,7 @@
         ${tile(o.avg_find_min == null ? '—' : String(o.avg_find_min).replace('.', ',') + ' мин', 'поиск водителя', 'в среднем от заказа до выбора')}
       </div>
 
+      <div id="dispatch-metrics">Загружаем показатели откликов и отмен…</div>
       <h2 class="sec">Люди</h2>
       <div class="tiles">
         ${tile(pp.new, 'новых')}
@@ -1074,6 +1248,21 @@
       <div class="note">${statsDays === 1 || !data.days || !data.days.length
         ? 'С полуночи'
         : 'С ' + new Date(data.days[0].day + 'T12:00:00').toLocaleDateString('ru-RU', { day: 'numeric', month: 'long' })}${CFG.cityGenitive ? ' по времени ' + esc(CFG.cityGenitive) : ''}.</div>`;
+    renderDispatchMetrics(data.period_start);
+  }
+
+  async function renderDispatchMetrics(start){
+    const box = $('dispatch-metrics');
+    const { data, error } = await sb.rpc('admin_dispatch_metrics', { p_start: start });
+    if(!box.isConnected) return;
+    if(error){ box.textContent = 'Не удалось загрузить показатели откликов и отмен.'; return; }
+    const seconds = data.first_offer_seconds;
+    const timing = seconds == null ? '—' : seconds < 60 ? seconds + ' сек' : Math.round(seconds / 6) / 10 + ' мин';
+    box.innerHTML = `<h2 class="sec">Отклики и отмены</h2>
+      <div class="tiles">${tile(timing, 'до первого отклика', 'Среднее по заказам с записанным откликом · ' + data.first_offer_sample)}</div>
+      ${data.reasons.length ? `<ul class="dispatch-timeline">${data.reasons.map(r =>
+        `<li><strong>${esc(CANCEL_REASONS[r.reason] || r.reason)}</strong><span>${esc(r.count)}</span></li>`).join('')}</ul>`
+        : '<p class="muted small">За этот период отмен не было.</p>'}`;
   }
 
 
@@ -1562,7 +1751,7 @@
   // Возвращает false, если передумали, или { reason } при согласии.
   // reasons — список готовых причин (плашки); последняя «Другая причина…»
   // открывает поле. Без выбранной причины главная кнопка бледная.
-  function confirmSheet({ title, text, okText, cancelText, danger, reason, reasons }){
+  function confirmSheet({ title, text, okText, cancelText, danger, reason, reasons, reasonLabel = 'Причина (видят только админы)' }){
     return new Promise(resolve => {
       const wrap = document.createElement('div');
       wrap.className = 'confirm-overlay';
@@ -1570,8 +1759,8 @@
         <div class="confirm-sheet" role="dialog" aria-modal="true" aria-labelledby="confirm-title">
           <div class="confirm-title" id="confirm-title">${esc(title)}</div>
           <p class="confirm-text">${esc(text)}</p>
-          ${reason ? `<label for="confirm-reason">Причина (видят только админы)</label>
-            <textarea id="confirm-reason" placeholder="Коротко, что случилось"></textarea>` : ''}
+          ${reason ? `<label for="confirm-reason">${esc(reasonLabel)}</label>
+            <textarea id="confirm-reason" maxlength="500" placeholder="Коротко, что случилось"></textarea>` : ''}
           ${reasons ? `<label>Причина</label>
             <div class="reasons">${reasons.map((r, i) => `<button class="chip" data-reason="${i}">${esc(r)}</button>`).join('')}
               <button class="chip" data-reason="other">Другая причина…</button></div>
