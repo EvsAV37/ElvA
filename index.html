@@ -953,23 +953,35 @@
   }
 
   #view-car:not([hidden]){ display: flex; flex-direction: column; gap: 16px; }
-  .car-preview{ display: flex; justify-content: center; padding: 4px 0 8px; }
-  .car-preview .plate{ font-size: 30px; }
-  .chip-row{ display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .brand-chip, .color-chip{
-    appearance: none; font-family: inherit; cursor: pointer;
-    background: var(--surface); color: var(--text);
-    border: 1px solid var(--line); border-radius: 999px;
-    font-size: var(--fs-s); font-weight: 600;
-    -webkit-tap-highlight-color: transparent;
+  .car-form{ gap: 12px; }
+  .car-preview{ display: flex; align-items: center; margin-top: 8px; }
+  .car-color-button{
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    width: 100%; min-height: var(--btn-h); border: 1px solid var(--control-border);
+    border-radius: var(--r-in); padding: 10px 12px; font: inherit;
+    color: var(--text); background: var(--surface); text-align: left; cursor: pointer;
   }
-  .brand-chip{ padding: 7px 12px; color: var(--muted); }
-  .color-chip{ display: inline-flex; align-items: center; gap: 7px; padding: 6px 12px 6px 6px; }
-  .color-chip.active{ border-color: var(--ice); box-shadow: inset 0 0 0 1px var(--ice); }
-  .brand-chip:focus-visible, .color-chip:focus-visible{ outline: none; border-color: var(--ice); }
-  .swatch{ width: 20px; height: 20px; border-radius: 50%; box-shadow: inset 0 0 0 1px rgba(255,255,255,0.28); }
-  .swatch-other{ background: conic-gradient(#d33a3a, #f2c94c, #2f8f4e, #2d55c8, #7a4bc4, #d33a3a); }
-  #car-color-other{ margin-top: 8px; }
+  .car-color-value{ display: flex; align-items: center; gap: 8px; color: var(--muted); }
+  .car-color-dialog{
+    position: fixed; inset: auto 0 0; margin: 0 auto;
+    width: min(100%, 480px); max-width: 100%; max-height: 75vh; max-height: 75dvh;
+    border: 1px solid var(--line); border-radius: 20px 20px 0 0;
+    background: var(--surface); color: var(--text);
+    padding: 18px 20px calc(12px + env(safe-area-inset-bottom)); overflow: auto;
+  }
+  .car-color-dialog::backdrop{ background: rgba(5,12,15,.6); }
+  .car-color-header{ display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  .car-color-header h2{ margin: 0; font-size: var(--fs-l); }
+  .car-color-option{
+    display: flex; align-items: center; justify-content: space-between;
+    width: 100%; min-height: 44px; border: 0; border-top: 1px solid var(--line);
+    background: transparent; color: var(--text); padding: 8px 4px;
+    font: inherit; text-align: left; cursor: pointer;
+  }
+  .car-color-check{ visibility: hidden; color: var(--ice); font-weight: 700; }
+  .car-color-option[aria-pressed="true"] .car-color-check{ visibility: visible; }
+  .car-form [aria-invalid="true"]{ border-color: var(--danger); }
+  .car-review-status{ color: var(--ice); font-size: var(--fs-s); font-weight: 700; }
   .confirm-sheet select{ width: 100%; padding: 10px; color: var(--text); background: var(--surface); border: 1px solid var(--control-border); border-radius: 10px; font: inherit; }
   .form-error{ color: var(--danger); font-size: var(--fs-s); line-height: 1.5; margin: 0; }
   .field-hint{ color: var(--muted); font-size: var(--fs-xs); line-height: 1.5; margin-top: 6px; }
@@ -3438,15 +3450,14 @@ window.ElvaSplash = (() => {
   let carDraft = null;         // то, что сейчас в форме
 
   const CAR_BRANDS = ['Toyota', 'Lada', 'Honda', 'Nissan', 'Mitsubishi', 'Hyundai', 'Kia', 'Subaru', 'Mazda', 'УАЗ'];
-  // Цвет согласован со словом «машина»: «Toyota Corolla, белая».
-  const CAR_COLORS = [
-    ['белая', '#f4f4f4'], ['чёрная', '#141414'], ['серая', '#8a8f98'],
-    ['серебристая', 'linear-gradient(135deg, #f1f3f5, #9aa0a8)'],
-    ['синяя', '#2d55c8'], ['голубая', '#7cc4ef'], ['красная', '#d33a3a'],
-    ['бордовая', '#7a1f2b'], ['зелёная', '#2f8f4e'], ['бежевая', '#d8c6a0'],
-    ['коричневая', '#6b4a2f'], ['жёлтая', '#f2c94c'], ['оранжевая', '#f08a2c'],
-    ['фиолетовая', '#7a4bc4']
-  ];
+  // Названия в форме относятся к цвету, серверные значения — к машине.
+  const CAR_COLORS = new Map([
+    ['белая', 'Белый'], ['чёрная', 'Чёрный'], ['серая', 'Серый'],
+    ['серебристая', 'Серебристый'], ['синяя', 'Синий'], ['голубая', 'Голубой'],
+    ['красная', 'Красный'], ['бордовая', 'Бордовый'], ['зелёная', 'Зелёный'],
+    ['бежевая', 'Бежевый'], ['коричневая', 'Коричневый'], ['жёлтая', 'Жёлтый'],
+    ['оранжевая', 'Оранжевый'], ['фиолетовая', 'Фиолетовый']
+  ]);
 
   // Номер: буква, три цифры, две буквы, регион (2–3 цифры). Только те буквы,
   // что есть и в русском, и в латинском алфавите. Латинские двойники
@@ -3537,7 +3548,9 @@ window.ElvaSplash = (() => {
     let content;
     const status = driverApplication?.status;
     if(status === 'pending'){
-      content = `<div class="support-title">Заявка на проверке</div>
+      content = `<div class="car-review-status" role="status">На проверке</div>
+        <div class="support-title">${esc(carTitle(driverApplication))}</div>
+        <div>${plateHtml(driverApplication.plate, 'sm')}</div>
         <p class="support-text">После одобрения здесь откроются заказы.</p>
         <button class="btn-ghost" onclick="fetchMyCar()">Проверить статус</button>`;
     } else if(status === 'returned'){
@@ -3565,9 +3578,11 @@ window.ElvaSplash = (() => {
     if(!myCarLoaded || driverApplication?.status === 'pending') return;
     etaSelectingId = null;
     const { model = '', color = '', plate = '' } = driverApplication || {};
-    const cur = { model, color, plate };
-    const known = CAR_COLORS.some(c => c[0] === cur.color);
-    carDraft = { model: cur.model, color: cur.color, other: !!cur.color && !known, plate: cur.plate };
+    const savedModel = (model || '').trim();
+    const [brand = '', ...modelWords] = savedModel.split(/\s+/);
+    const savedColor = color || '';
+    carDraft = { brand, model: modelWords.join(' '), color: savedColor,
+      other: !!savedColor && !CAR_COLORS.has(savedColor), plate: plate || '' };
     for(const id of ['view-banned', 'view-passenger', 'view-driver', 'view-history', 'view-help', 'view-profile', 'view-settings']){
       document.getElementById(id).hidden = true;
     }
@@ -3585,88 +3600,123 @@ window.ElvaSplash = (() => {
 
   function renderCar(){
     const d = carDraft;
+    const validPlate = PLATE_RE.test(d.plate);
     document.getElementById('view-car').innerHTML = `
       <div class="history-head">
-        <button class="history-back" onclick="closeCar()">← Назад</button>
-        <h1 class="view-title">${myCar ? 'Изменить автомобиль' : 'Автомобиль водителя'}</h1>
+        <button type="button" class="history-back" onclick="closeCar()">← Назад</button>
+        <h1 class="view-title">${myCar ? 'Изменить автомобиль' : 'Добавить автомобиль'}</h1>
       </div>
-      <p class="history-summary">Марку и цвет пассажир увидит в вашем предложении, а госномер — крупно на экране, когда выберет вас.</p>
 
-      <div class="order-card">
-        <div class="car-preview" id="car-preview">${plateHtml(d.plate, 'lg', true)}</div>
-
+      <form class="order-card car-form" novalidate onsubmit="event.preventDefault(); saveCar()">
         <div class="field">
-          <label for="car-model">Марка и модель</label>
-          <input id="car-model" type="text" maxlength="40" placeholder="Toyota Corolla"
-                 autocomplete="off" autocorrect="off" spellcheck="false"
-                 value="${escAttr(d.model)}" oninput="carDraft.model = this.value">
-          <div class="chip-row">
-            ${CAR_BRANDS.map(b => `<button type="button" class="brand-chip" onclick="pickCarBrand('${b}')">${b}</button>`).join('')}
-          </div>
+          <label for="car-brand">Марка</label>
+          <input id="car-brand" type="text" list="car-brand-list" maxlength="40" placeholder="Toyota"
+                 autocomplete="off" autocorrect="off" spellcheck="false" required
+                 value="${escAttr(d.brand)}" oninput="carDraft.brand = this.value">
+          <datalist id="car-brand-list">${CAR_BRANDS.map(brand => `<option value="${brand}"></option>`).join('')}</datalist>
         </div>
 
         <div class="field">
-          <label>Цвет</label>
-          <div class="chip-row" id="car-colors">
-            ${CAR_COLORS.map(([name, bg]) => `
-              <button type="button" class="color-chip${!d.other && d.color === name ? ' active' : ''}"
-                      data-color="${name}" onclick="pickCarColor('${name}')">
-                <span class="swatch" style="background:${bg}"></span>${name}
-              </button>`).join('')}
-            <button type="button" class="color-chip${d.other ? ' active' : ''}" data-color="" onclick="pickCarColor(null)">
-              <span class="swatch swatch-other"></span>другой
-            </button>
-          </div>
-          <input id="car-color-other" type="text" maxlength="24" placeholder="Например, вишнёвая"
-                 autocomplete="off" ${d.other ? '' : 'hidden'}
-                 value="${d.other ? escAttr(d.color) : ''}" oninput="carDraft.color = this.value">
+          <label for="car-model">Модель</label>
+          <input id="car-model" type="text" maxlength="40" placeholder="Corolla"
+                 autocomplete="off" autocorrect="off" spellcheck="false" required
+                 value="${escAttr(d.model)}" oninput="carDraft.model = this.value">
+        </div>
+
+        <div class="field">
+          <button type="button" class="car-color-button" id="car-color" aria-haspopup="dialog"
+                  aria-controls="car-color-list" onclick="openCarColors()">
+            <span>Цвет автомобиля</span>
+            <span class="car-color-value"><span id="car-color-value">${esc(carColorLabel(d.color))}</span><span aria-hidden="true">›</span></span>
+          </button>
+          <label for="car-color-other" id="car-color-other-label" ${d.other ? '' : 'hidden'}>Другой цвет</label>
+          <input id="car-color-other" type="text" maxlength="24" placeholder="Например, вишнёвый"
+                 autocomplete="off" ${d.other ? '' : 'hidden'} value="${d.other ? escAttr(d.color) : ''}"
+                 oninput="carDraft.color = this.value; updateCarColorValue()">
         </div>
 
         <div class="field">
           <label for="car-plate">Госномер</label>
-          <input id="car-plate" type="text" maxlength="12" placeholder="А123ВС ${escAttr(CFG.plateRegion)}"
-                 autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false"
-                 value="${escAttr(formatPlate(d.plate))}" oninput="onCarPlateInput(this)">
-          <div class="field-hint">Буква, три цифры, две буквы и регион.</div>
+          <input id="car-plate" type="text" maxlength="12" placeholder="А123ВС ${escAttr(CFG.plateRegion || '14')}"
+                 autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false" required
+                 aria-describedby="car-plate-hint car-plate-error" value="${escAttr(formatPlate(d.plate))}"
+                 oninput="onCarPlateInput(this)" onblur="if (carDraft.plate) validateCarPlate()">
+          <div class="field-hint" id="car-plate-hint">Например, А123ВС ${esc(CFG.plateRegion || '14')}.</div>
+          <p class="form-error" id="car-plate-error" role="alert" hidden>Проверьте формат госномера.</p>
+          <div class="car-preview" id="car-preview" ${validPlate ? '' : 'hidden'}>${validPlate ? plateHtml(d.plate, 'sm') : ''}</div>
         </div>
 
-        <div class="form-error" id="car-error" role="alert" hidden></div>
-        <button class="btn-primary" id="car-save" onclick="saveCar()">Отправить заявку</button>
-      </div>
+        <p class="form-error" id="car-error" role="alert" hidden></p>
+        <button type="submit" class="btn-primary" id="car-save">Отправить заявку</button>
+      </form>
+      <dialog class="car-color-dialog" id="car-color-list" aria-labelledby="car-color-title">
+        <div class="car-color-header">
+          <h2 id="car-color-title">Цвет автомобиля</h2>
+          <button type="button" class="history-back" onclick="this.closest('dialog').close()">Закрыть</button>
+        </div>
+        ${Array.from(CAR_COLORS, ([value, label]) => carColorOption(value, label)).join('')}
+        ${carColorOption('', 'Другой…')}
+      </dialog>
     `;
   }
 
-  function pickCarBrand(brand){
-    const input = document.getElementById('car-model');
-    const rest = input.value.trim().split(/\s+/).slice(1).join(' ');
-    input.value = brand + ' ' + rest;
-    carDraft.model = input.value;
-    input.focus();
-    const end = input.value.length;
-    try { input.setSelectionRange(end, end); } catch(e){}
+  function carColorLabel(color){
+    const value = color.trim();
+    return CAR_COLORS.get(value) || value || 'Выбрать';
   }
 
-  function pickCarColor(name){
-    const other = document.getElementById('car-color-other');
-    if(name === null){
-      carDraft.other = true;
-      carDraft.color = other.value;
-      other.hidden = false;
-      other.focus();
-    } else {
-      carDraft.other = false;
-      carDraft.color = name;
-      other.hidden = true;
-    }
-    document.querySelectorAll('#car-colors .color-chip').forEach(btn => {
-      btn.classList.toggle('active', carDraft.other ? btn.dataset.color === '' : btn.dataset.color === name);
+  function carColorOption(value, label){
+    return `<button type="button" class="car-color-option" data-color="${value}"
+                    aria-pressed="false" onclick="pickCarColor(this.dataset.color)">
+              ${label}<span class="car-color-check" aria-hidden="true">✓</span>
+            </button>`;
+  }
+
+  function openCarColors(){
+    const dialog = document.getElementById('car-color-list');
+    const selected = carDraft.other ? '' : carDraft.color || null;
+    dialog.querySelectorAll('[data-color]').forEach(button => {
+      button.setAttribute('aria-pressed', String(button.dataset.color === selected));
     });
+    dialog.showModal();
+    dialog.querySelector('[aria-pressed="true"]')?.scrollIntoView({ block: 'nearest' });
   }
 
-  function onCarPlateInput(el){
-    const norm = normalizePlate(el.value).slice(0, 9);
-    carDraft.plate = norm;
-    document.getElementById('car-preview').innerHTML = plateHtml(norm, 'lg', true);
+  function updateCarColorValue(){
+    document.getElementById('car-color-value').textContent = carColorLabel(carDraft.color);
+  }
+
+  function pickCarColor(value){
+    const other = document.getElementById('car-color-other');
+    carDraft.other = value === '';
+    carDraft.color = carDraft.other ? other.value : value;
+    other.hidden = !carDraft.other;
+    document.getElementById('car-color-other-label').hidden = !carDraft.other;
+    document.getElementById('car-color-list').close();
+    updateCarColorValue();
+    carError('');
+    if(carDraft.other) other.focus();
+  }
+
+  function onCarPlateInput(input){
+    carDraft.plate = normalizePlate(input.value);
+    const numberIsValid = PLATE_RE.test(carDraft.plate);
+    const preview = document.getElementById('car-preview');
+    preview.hidden = !numberIsValid;
+    preview.innerHTML = numberIsValid ? plateHtml(carDraft.plate, 'sm') : '';
+    if(numberIsValid || !carDraft.plate) showCarPlateError(false);
+  }
+
+  function showCarPlateError(invalid){
+    document.getElementById('car-plate-error').hidden = !invalid;
+    document.getElementById('car-plate').setAttribute('aria-invalid', String(invalid));
+  }
+
+  function validateCarPlate(){
+    const valid = PLATE_RE.test(carDraft.plate);
+    showCarPlateError(!valid);
+    if(valid) document.getElementById('car-plate').value = formatPlate(carDraft.plate);
+    return valid;
   }
 
   function carError(text){
@@ -3676,15 +3726,19 @@ window.ElvaSplash = (() => {
   }
 
   async function saveCar(){
-    const model = (carDraft.model || '').trim().replace(/\s+/g, ' ');
-    const color = (carDraft.color || '').trim().toLowerCase();
-    const plate = normalizePlate(carDraft.plate);
-    if(model.length < 2){ carError('Укажите марку и модель, например Toyota Corolla.'); return; }
-    if(color.length < 2){ carError('Выберите цвет машины.'); return; }
-    if(!PLATE_RE.test(plate)){ carError('Проверьте госномер: буква, три цифры, две буквы и регион — например, А123ВС 14.'); return; }
+    const btn = document.getElementById('car-save');
+    if(btn.disabled) return;
+    const brand = carDraft.brand.trim();
+    const carModel = carDraft.model.trim();
+    const model = (brand + ' ' + carModel).replace(/\s+/g, ' ');
+    const color = carDraft.color.trim().toLowerCase();
+    const plate = carDraft.plate;
+    if(!brand || !carModel){ carError('Укажите марку и модель.'); return; }
+    if(model.length > 40){ carError('Марка и модель вместе должны занимать не больше 40 символов.'); return; }
+    if(color.length < 2){ carError('Укажите цвет автомобиля.'); return; }
+    if(!validateCarPlate()){ document.getElementById('car-plate').focus(); return; }
     carError('');
 
-    const btn = document.getElementById('car-save');
     const draft = carDraft;
     btn.disabled = true;
     const previous = driverApplication;
@@ -3708,7 +3762,8 @@ window.ElvaSplash = (() => {
       && previous.model === model && previous.color === color && previous.plate === plate;
     if(!unchanged) applyDriverApplication({ status:'pending', model, color, plate });
     if(draft === carDraft && !document.getElementById('view-car').hidden){
-      closeCar();
+      if(unchanged) closeCar();
+      else switchView('driver');
       showToast(unchanged ? 'Данные автомобиля уже одобрены' : 'Заявка отправлена');
     }
     renderDriver();
