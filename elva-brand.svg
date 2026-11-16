@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+  <path id="ev" d="M131 101H269L245 138H111Z M109 142H156L213.5 231.5L261 155H308L229.5 282H199.5Z M95 167H118L143 207H73Z M62 227H157L183 267H41Z"/>
+  <path id="ev-accent" d="M295 100H342L311 151H264Z"/>
+
+  <!-- Wordmark outlines from Onest at weight 600, with a shared baseline. -->
+  <path id="elv" transform="translate(-79 707.4) scale(1 -1)" d="M79 0V707.4H577.6V592.8H203.6V406.8H529.4V294.8H203.6V114.6H577.6V0Z M657 0V707.4H778.8V0Z M1011.2 0 820.2 527H954.6L1093.8 103.6L1231.6 527H1366.2L1175.2 0Z"/>
+  <path id="a" transform="translate(1269 707.4) scale(1 -1)" d="M4 0 275.4 707.4H424L693.6 0H559.2L511.6 131.2H186L138 0Z M226.2 243.8H471.4L349.4 581Z"/>
+</svg>

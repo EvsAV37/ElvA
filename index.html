@@ -794,10 +794,12 @@
     gap: 16px;
     animation: splash-in 240ms ease-out both;
   }
-  .splash-brand img{
+  .splash-brand .splash-mark{
     display: block;
-    width: clamp(82px, 25vw, 120px);
+    width: clamp(124px, 39vw, 180px);
     height: auto;
+    color: #e5eef1;
+    --brand-accent: #7ce4b4;
   }
   .splash-recovery{
     max-width: 270px;
@@ -1056,7 +1058,7 @@
   .ride-driver-stop{ display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
   .ride-driver-stop small{ color: var(--muted); font-size: 12px; align-self: center; }
 </style>
-<link rel="stylesheet" href="elva-brand.css">
+<link rel="stylesheet" href="elva-brand.css?v=2">
 </head>
 <body>
 
@@ -1064,7 +1066,7 @@
      как загрузится и выполнится основной скрипт приложения. -->
 <div id="splash" aria-hidden="true">
   <div class="splash-brand">
-    <img src="splash-ev.svg" width="303" height="185" alt="" fetchpriority="high">
+    <svg class="brand-mark splash-mark" viewBox="41 100 301 182" aria-hidden="true"><use href="elva-brand.svg#ev"/><use class="brand-accent" href="elva-brand.svg#ev-accent"/></svg>
     <div class="splash-recovery" hidden>
       <p role="status">Приложение долго загружается</p>
       <button type="button" onclick="location.reload()">Попробовать снова</button>
@@ -1099,7 +1101,7 @@ window.ElvaSplash = (() => {
       <button class="burger-btn ghost" id="burger-btn" onclick="openMenu()" aria-label="Меню">
         <span></span><span></span><span></span>
       </button>
-      <div class="logo"><img class="brand-mark" src="header-ev.svg" width="303" height="185" alt=""><span>Elv<span class="brand-accent">A</span></span></div>
+      <div class="logo"><svg class="brand-mark" viewBox="41 100 301 182" aria-hidden="true"><use href="elva-brand.svg#ev"/><use class="brand-accent" href="elva-brand.svg#ev-accent"/></svg><svg class="brand-wordmark" viewBox="0 0 1963 707.4" role="img" aria-label="ElvA"><use href="elva-brand.svg#elv"/><use class="brand-accent" href="elva-brand.svg#a"/></svg></div>
     </div>
     <div class="tagline" data-cfg="tagline">Такси по Олёкминску</div>
   </div>

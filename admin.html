@@ -63,7 +63,7 @@
   }
   h2{ font-size: var(--fs-l); font-weight: 700; line-height: 1.3; margin: 0; }
   .brand{ color: var(--text); }
-  .brand-dark .brand-mark{ color-scheme: dark; margin-right: 7px; }
+  .brand-dark .brand-mark{ margin-right: 7px; }
   .muted{ color: var(--muted); }
   .small{ font-size: var(--fs-s); }
 
@@ -351,14 +351,14 @@
     button:not(:disabled):active{ transform: none; }
   }
 </style>
-<link rel="stylesheet" href="elva-brand.css">
+<link rel="stylesheet" href="elva-brand.css?v=2">
 </head>
 <body>
 <div class="shell">
 
   <!-- ===== Вход ===== -->
   <section id="screen-login" hidden>
-    <h1><img class="brand-mark" src="header-ev.svg" width="303" height="185" alt=""><span class="brand" data-cfg="appName">ElvA</span> · админ</h1>
+    <h1><svg class="brand-mark" viewBox="41 100 301 182" aria-hidden="true"><use href="elva-brand.svg#ev"/><use class="brand-accent" href="elva-brand.svg#ev-accent"/></svg><span class="brand" data-cfg="appName"><svg class="brand-wordmark" viewBox="0 0 1963 707.4" role="img" aria-label="ElvA"><use href="elva-brand.svg#elv"/><use class="brand-accent" href="elva-brand.svg#a"/></svg></span> · админ</h1>
     <div class="card">
       <label for="l-email">Почта</label>
       <input id="l-email" type="email" autocomplete="username" inputmode="email">
@@ -374,7 +374,7 @@
 
   <!-- ===== Новый пароль по ссылке из письма ===== -->
   <section id="screen-recovery" hidden>
-    <h1><img class="brand-mark" src="header-ev.svg" width="303" height="185" alt=""><span class="brand" data-cfg="appName">ElvA</span> · <span id="r-title">новый пароль</span></h1>
+    <h1><svg class="brand-mark" viewBox="41 100 301 182" aria-hidden="true"><use href="elva-brand.svg#ev"/><use class="brand-accent" href="elva-brand.svg#ev-accent"/></svg><span class="brand" data-cfg="appName"><svg class="brand-wordmark" viewBox="0 0 1963 707.4" role="img" aria-label="ElvA"><use href="elva-brand.svg#elv"/><use class="brand-accent" href="elva-brand.svg#a"/></svg></span> · <span id="r-title">новый пароль</span></h1>
     <div class="card">
       <div id="r-welcome" hidden></div>
       <label for="r-pass" id="r-label">Новый пароль</label>
@@ -389,7 +389,7 @@
 
   <!-- ===== Панель ===== -->
   <section id="screen-panel" hidden>
-    <h1><img class="brand-mark" src="header-ev.svg" width="303" height="185" alt=""><span class="brand" data-cfg="appName">ElvA</span> · админ</h1>
+    <h1><svg class="brand-mark" viewBox="41 100 301 182" aria-hidden="true"><use href="elva-brand.svg#ev"/><use class="brand-accent" href="elva-brand.svg#ev-accent"/></svg><span class="brand" data-cfg="appName"><svg class="brand-wordmark" viewBox="0 0 1963 707.4" role="img" aria-label="ElvA"><use href="elva-brand.svg#elv"/><use class="brand-accent" href="elva-brand.svg#a"/></svg></span> · админ</h1>
     <div class="who" id="who"></div>
     <nav class="tabs" id="tabs"></nav>
     <div id="tab-body"></div>
@@ -417,14 +417,9 @@
   const MIN_PASSWORD = 10;
   document.title = CFG.appName + ' · Админ-панель';
   document.querySelectorAll('[data-cfg]').forEach(el => {
-    const name = CFG[el.dataset.cfg] || '';
-    el.textContent = name;
-    if (el.classList.contains('brand') && name === 'ElvA') {
-      const accent = document.createElement('span');
-      accent.className = 'brand-accent';
-      accent.textContent = 'A';
-      el.replaceChildren('Elv', accent);
-    }
+    const value = CFG[el.dataset.cfg] || '';
+    if (el.dataset.cfg === 'appName' && value === 'ElvA') return;
+    el.textContent = value;
   });
 
   // storageKey — свой, не как у приложения: если в одном Safari открыты и
