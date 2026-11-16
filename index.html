@@ -7,17 +7,18 @@
      с экрана «Домой» это видно как вспышка. Чем раньше страница нарисует
      свой первый кадр нашего цвета, тем короче (или вовсе незаметна) эта
      вспышка. Цвет тот же, что у заставки и background_color в манифесте. -->
-<style>html, body{ background: #03070a; }</style>
+<style>html, body{ background: #191b1d; }</style>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ElvA — такси по Олёкминску</title>
 <!-- Установка на экран «Домой» и push-уведомления -->
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="ElvA">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="theme-color" content="#03070a">
+<meta name="theme-color" content="#191b1d">
 <script src="elva-theme.js"></script>
 <link rel="stylesheet" href="fonts/onest.css">
 <style>
@@ -89,7 +90,7 @@
        Цвет — ровно такой же, как у заставки (#splash) и как background_color
        в манифесте: иначе между стартовым экраном системы и заставкой
        проскакивает кадр другого цвета, и это видно как вспышка. */
-    background: #03070a;
+    background: #191b1d;
   }
 
   body{
@@ -126,6 +127,9 @@
 
   .logo-row{ position: relative; display: flex; align-items: center; gap: 10px; }
   .logo{
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
     font-family: 'Onest', system-ui, sans-serif;
     font-size: 26px;
     font-weight: 600;
@@ -774,15 +778,54 @@
   }
 
   #splash{
-    position: fixed; inset: 0;
+    position: fixed;
+    inset: 0;
     z-index: 100;
-    background: #03070a;
-    transition: opacity 0.6s ease;
+    display: grid;
+    place-items: center;
+    background: #191b1d;
+    color: #f0f4f4;
+    transition: opacity 160ms ease;
   }
   #splash.leaving{ opacity: 0; pointer-events: none; }
-  #splash canvas{ position: absolute; inset: 0; width: 100%; height: 100%; }
-
-
+  .splash-brand{
+    display: grid;
+    justify-items: center;
+    gap: 16px;
+    animation: splash-in 240ms ease-out both;
+  }
+  .splash-brand img{
+    display: block;
+    width: clamp(82px, 25vw, 120px);
+    height: auto;
+  }
+  .splash-recovery{
+    max-width: 270px;
+    padding: 0 16px;
+    font-size: 15px;
+    font-weight: 450;
+    letter-spacing: normal;
+    text-align: center;
+  }
+  .splash-recovery p{ margin: 0 0 12px; }
+  .splash-recovery button{
+    background: #79eab2;
+    color: #12261c;
+    min-height: 44px;
+    padding: 8px 16px;
+    border: 0;
+    border-radius: 12px;
+    font: inherit;
+    font-weight: 650;
+  }
+  @keyframes splash-in{
+    from{ opacity: 0; transform: translateY(5px); }
+    to{ opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce){
+    #splash{ transition: none; }
+    .splash-brand{ animation: none; }
+  }
 
   /* ---------- Машина водителя ----------
      Госномер рисуется как настоящий российский знак: белое поле, чёрная
@@ -1013,211 +1056,39 @@
   .ride-driver-stop{ display: grid; grid-template-columns: 48px minmax(0, 1fr); gap: 8px; }
   .ride-driver-stop small{ color: var(--muted); font-size: 12px; align-self: center; }
 </style>
+<link rel="stylesheet" href="elva-brand.css">
 </head>
 <body>
 
 <!-- Заставка. Стоит первым элементом, чтобы показаться мгновенно — до того,
      как загрузится и выполнится основной скрипт приложения. -->
 <div id="splash" aria-hidden="true">
-  <canvas id="splash-gl"></canvas>
-  <canvas id="splash-ov"></canvas>
+  <div class="splash-brand">
+    <img src="splash-ev.svg" width="303" height="185" alt="" fetchpriority="high">
+    <div class="splash-recovery" hidden>
+      <p role="status">Приложение долго загружается</p>
+      <button type="button" onclick="location.reload()">Попробовать снова</button>
+    </div>
+  </div>
 </div>
 <script>
-// ---------- Заставка ----------
-// Сияние на весь экран, логотип плавно проявляется в центре. Живёт минимум 3 с
-// (1,5 с анимации + 1,5 с сцена живёт), а если приложение ещё не готово —
-// продолжает играть, пока основной скрипт не вызовет ElvaSplash.hide().
-// Нет WebGL или включено «уменьшить движение» — простой логотип на тёмном фоне.
-window.ElvaSplash = (function(){
-  const MIN_MS = 3000;
-  const ICE = '143,224,232';
-  const clamp01 = x => Math.min(Math.max(x, 0), 1);
-  const root = document.getElementById('splash');
-  const glc = document.getElementById('splash-gl');
-  const ov = document.getElementById('splash-ov');
-  const started = performance.now();
-  const minimum = new Promise(r => setTimeout(r, MIN_MS));
-  let running = true;
+window.ElvaSplash = (() => {
+  const splash = document.getElementById('splash');
+  const minimum = new Promise(resolve => setTimeout(resolve, 450));
 
-
-const HEAD = `
-#ifdef GL_FRAGMENT_PRECISION_HIGH
-precision highp float;
-#else
-precision mediump float;
-#endif
-uniform vec2 u_res;
-uniform float u_t;
-float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }
-float noise(vec2 p){
-  vec2 i = floor(p), f = fract(p);
-  vec2 u = f * f * (3.0 - 2.0 * f);
-  return mix(mix(hash(i), hash(i + vec2(1.0, 0.0)), u.x),
-             mix(hash(i + vec2(0.0, 1.0)), hash(i + vec2(1.0, 1.0)), u.x), u.y);
-}
-float fbm(vec2 p){
-  float v = 0.0, a = 0.5;
-  for(int i = 0; i < 5; i++){ v += a * noise(p); p *= 2.02; a *= 0.5; }
-  return v;
-}
-float ridged(vec2 p){
-  float v = 0.0, a = 0.5;
-  for(int i = 0; i < 5; i++){ float n = 1.0 - abs(noise(p) * 2.0 - 1.0); v += a * n * n; p *= 2.1; a *= 0.5; }
-  return v;
-}
-vec3 finish(vec3 col, vec2 uv, float t){
-  col *= 1.0 - 0.38 * length((uv - 0.5) * vec2(0.9, 1.1));   // виньетка
-  col += (hash(uv * u_res + fract(t * 7.0) * 91.0) - 0.5) * 0.03; // зерно плёнки
-  return col;
-}
-`;
-
-
-
-const AUR_LIB = `
-vec3 stars(vec2 uv, float a, float t){
-  vec2 sp = uv * vec2(a, 1.0) * 150.0;
-  float sh = hash(floor(sp));
-  if(sh < 0.986) return vec3(0.0);
-  return vec3(1.0) * smoothstep(0.15, 0.0, length(fract(sp) - 0.5)) * (0.55 + 0.45 * sin(t * 5.0 + sh * 60.0)) * 0.9;
-}
-// slope — наклон занавесов, spreadK — насколько широко лучи уходят от края
-vec3 aurora(vec2 uv, float a, float t, float baseY, float slope, float both){
-  float ramp = smoothstep(0.0, 1.2, t);
-  float spread = 0.08 + 0.8 * ramp;
-  vec3 aur = vec3(0.0);
-  for(int i = 0; i < 3; i++){
-    float fi = float(i);
-    float x = uv.x * a * 1.3 + fi * 0.9;
-    float base = baseY + 0.08 * fi + (uv.x - 0.5) * slope * (fi - 1.0)
-               + 0.13 * sin(x * 0.9 + t * 0.35 + fi * 2.0)
-               + 0.06 * sin(x * 2.3 - t * 0.5 + fi)
-               + 0.07 * (fbm(vec2(x * 1.2, t * 0.2 + fi)) - 0.5);
-    float d = uv.y - base;
-    float rays = pow(fbm(vec2(x * 16.0, t * 0.7 + fi * 5.0)), 1.6);
-    float up = exp(-max(d, 0.0) * (3.6 + fi * 1.4)) * smoothstep(-0.015, 0.012, d);
-    float down = exp(-max(-d, 0.0) * (5.0 + fi * 1.4)) * smoothstep(0.015, -0.012, d);
-    float curtain = up + down * both;
-    float ign = smoothstep(spread, spread - 0.3, abs(uv.x - 0.5));
-    float breathe = 0.85 + 0.15 * sin(t * 1.3 + fi * 1.7 + x);
-    vec3 c = mix(vec3(0.12, 0.95, 0.5), vec3(0.6, 0.3, 0.95), clamp(abs(d) * 2.0, 0.0, 1.0));
-    c = mix(c, vec3(0.56, 0.88, 0.91), 0.3 * fi);
-    float edgeGlow = exp(-abs(d) * 55.0) * 0.6;
-    aur += c * (curtain * (0.3 + 1.4 * rays) + edgeGlow) * ign * breathe * (0.6 - fi * 0.13);
-  }
-  return aur * ramp;
-}
-vec3 sky(vec2 uv){ return mix(vec3(0.015, 0.045, 0.07), vec3(0.004, 0.012, 0.035), uv.y); }
-float behindLogo(vec2 uv, float a, float cy){ return exp(-pow(length((uv - vec2(0.5, cy)) * vec2(a * 1.6, 3.2)), 2.0)); }
-`;
-
-const V_FULL = `
-uniform float u_scrim;
-uniform float u_scrimSize;
-void main(){
-  vec2 uv = gl_FragCoord.xy / u_res; float a = u_res.x / u_res.y, t = u_t;
-  vec3 col = sky(uv) + stars(uv, a, t) + aurora(uv, a, t, 0.42, 0.3, 0.8);
-
-  vec2 e = (uv - vec2(0.5, 0.5)) * vec2(a, 1.0) / vec2(0.34, 0.1) / u_scrimSize;
-  col *= 1.0 - u_scrim * exp(-pow(length(e), 2.4)) * smoothstep(0.0, 1.2, t);
-  gl_FragColor = vec4(finish(col, uv, t), 1.0);
-}`;
-
-
-  // Оформление Б: ледяной логотип, за ним тёмная прорезь в сиянии.
-  const SCRIM = 0.75, SCRIM_SIZE = 1.3;
-
-  function makeGL(){
-    const gl = glc.getContext('webgl', { antialias: false });
-    if(!gl) return null;
-    const sh = (type, src) => {
-      const s = gl.createShader(type); gl.shaderSource(s, src); gl.compileShader(s);
-      return gl.getShaderParameter(s, gl.COMPILE_STATUS) ? s : null;
-    };
-    const vs = sh(gl.VERTEX_SHADER, 'attribute vec2 p; void main(){ gl_Position = vec4(p, 0.0, 1.0); }');
-    const fs = sh(gl.FRAGMENT_SHADER, HEAD + AUR_LIB + V_FULL);
-    if(!vs || !fs) return null;
-    const prog = gl.createProgram();
-    gl.attachShader(prog, vs); gl.attachShader(prog, fs); gl.linkProgram(prog);
-    if(!gl.getProgramParameter(prog, gl.LINK_STATUS)) return null;
-    gl.useProgram(prog);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gl.createBuffer());
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
-    const loc = gl.getAttribLocation(prog, 'p');
-    gl.enableVertexAttribArray(loc); gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
-    const uRes = gl.getUniformLocation(prog, 'u_res'), uT = gl.getUniformLocation(prog, 'u_t');
-    gl.uniform1f(gl.getUniformLocation(prog, 'u_scrim'), SCRIM);
-    gl.uniform1f(gl.getUniformLocation(prog, 'u_scrimSize'), SCRIM_SIZE);
-    return t => {
-      gl.viewport(0, 0, glc.width, glc.height);
-      gl.uniform2f(uRes, glc.width, glc.height);
-      gl.uniform1f(uT, t);
-      gl.drawArrays(gl.TRIANGLES, 0, 3);
-    };
+  function hide(){
+    if(splash.classList.contains('leaving')) return;
+    clearTimeout(fallback);
+    splash.classList.add('leaving');
+    if(window.matchMedia('(prefers-reduced-motion: reduce)').matches) splash.remove();
+    else setTimeout(() => splash.remove(), 180);
   }
 
-  const dpr = window.devicePixelRatio || 1;
-  const W = window.innerWidth, H = window.innerHeight;
-  const reduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-  glc.width = W * Math.min(dpr, 1.25);
-  glc.height = H * Math.min(dpr, 1.25);
-  ov.width = W * dpr; ov.height = H * dpr;
-  const octx = ov.getContext('2d');
-  octx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  const draw = reduced ? null : makeGL();
-
-  const FONT = Math.round(Math.min(H * 0.063, W * 0.16));
-  let fontReady = false;
-  (document.fonts ? document.fonts.load('600 ' + FONT + 'px Unbounded') : Promise.resolve())
-    .finally(() => { fontReady = true; });
-
-  function drawLogo(t){
-    octx.clearRect(0, 0, W, H);
-    if(!fontReady) return;
-    const k = clamp01((t - 0.4) / 1.3);
-    const fade = k * k * k * (k * (k * 6 - 15) + 10);
-    if(fade <= 0) return;
-    const breathe = t > 1.5 ? 1 + 0.3 * Math.sin((t - 1.5) * 4) : 1;
-    octx.save();
-    octx.translate(W / 2, H / 2);
-    octx.globalAlpha = fade;
-    octx.font = '600 ' + FONT + 'px Unbounded, sans-serif';
-    octx.textAlign = 'center'; octx.textBaseline = 'middle';
-    octx.shadowColor = 'rgba(' + ICE + ',0.85)';
-    octx.shadowBlur = FONT * 0.53 * (draw ? breathe : 1);
-    octx.fillStyle = 'rgb(' + ICE + ')';
-    octx.fillText('ElvA', 0, 0);
-    octx.shadowBlur = 0;
-    const sk = (t - 1.8) / 0.6;
-    if(draw && sk > 0 && sk < 1){
-      const span = FONT * 2.1, sx = -span + 2 * span * sk;
-      const g = octx.createLinearGradient(sx - FONT * 0.6, 0, sx + FONT * 0.6, 0);
-      g.addColorStop(0, 'rgba(255,255,255,0)');
-      g.addColorStop(0.5, 'rgba(255,255,255,0.95)');
-      g.addColorStop(1, 'rgba(255,255,255,0)');
-      octx.fillStyle = g; octx.fillText('ElvA', 0, 0);
-    }
-    octx.restore();
-  }
-
-  (function frame(now){
-    if(!running) return;
-    const t = (now - started) / 1000;
-    if(draw) draw(t);
-    drawLogo(t);
-    requestAnimationFrame(frame);
-  })(performance.now());
-
-  const api = {
-    minimum,
-    hide(){
-      if(!root || root.classList.contains('leaving')) return;
-      root.classList.add('leaving');
-      setTimeout(() => { running = false; root.remove(); }, 650);
-    }
-  };
-  setTimeout(() => api.hide(), 10000);
-  return api;
+  const fallback = setTimeout(() => {
+    splash.removeAttribute('aria-hidden');
+    splash.querySelector('.splash-recovery').hidden = false;
+  }, 10000);
+  return { minimum, hide };
 })();
 </script>
 
@@ -1228,7 +1099,7 @@ void main(){
       <button class="burger-btn ghost" id="burger-btn" onclick="openMenu()" aria-label="Меню">
         <span></span><span></span><span></span>
       </button>
-      <div class="logo">ElvA</div>
+      <div class="logo"><img class="brand-mark" src="header-ev.svg" width="303" height="185" alt=""><span>Elv<span class="brand-accent">A</span></span></div>
     </div>
     <div class="tagline" data-cfg="tagline">Такси по Олёкминску</div>
   </div>
@@ -1725,9 +1596,8 @@ void main(){
     }, 20000);
   }
 
-  // Запуск: пока играет заставка, в фоне проверяем сессию и номер и готовим
-  // нужный экран. Заставка уходит, когда выполнено и то, и другое: прошли
-  // её 3 секунды и приложение уже знает, что показать.
+  // Готовим первый экран, пока видна короткая заставка.
+  // Когда первый экран готов, заканчиваем показ после минимального времени.
   async function init(){
     try {
       await routeAfterLaunch();

@@ -1,0 +1,12 @@
+:root { --brand-accent: #127955; }
+:root[data-theme="dark"], :root.brand-dark { --brand-accent: #7ce4b4; }
+
+.brand-mark {
+  display: inline-block;
+  width: auto;
+  height: .73em;
+  height: 1cap;
+  vertical-align: -.02em;
+}
+
+.brand-accent { color: var(--brand-accent); }
