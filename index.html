@@ -1270,6 +1270,7 @@ window.ElvaSplash = (() => {
     <section id="view-login" hidden>
       <h1 class="view-title">Вход</h1>
       <div class="order-card">
+        <div id="account-entry" hidden></div><div id="account-methods"></div>
         <div id="login-step-phone">
           <p class="login-hint">Введите ваш номер телефона — на него придёт подтверждение</p>
           <input id="login-phone" type="tel" inputmode="tel" placeholder="+7 ___ ___-__-__" autocomplete="tel" oninput="onPhoneInput(this)">
@@ -1762,13 +1763,13 @@ window.ElvaSplash = (() => {
       renderDriver();
       return;
     }
-    try {
-      await ensureAuthSession();
-    } catch(e){
-      showBanner('Не удалось создать сессию: ' + e.message, 'error');
-      return;
-    }
-
+    try { await loadRegistrationSettings(); } catch(e) { showBanner('Не удалось загрузить способы входа. Попробуйте ещё раз.', 'error'); return; }
+    const initialSession=await sb.auth.getSession();
+    if(!initialSession.data.session && registrationSettings.mode!=='phone'){ showLogin(); return; }
+    try { await ensureAuthSession(); } catch(e){ showBanner('Не удалось открыть вход: ' + e.message, 'error'); return; }
+    if(accountRecoveryPending){ showAccountRecovery(); return; }
+    const restored=await sb.auth.getSession();
+    if(restored.data.session && !restored.data.session.user.is_anonymous)await sb.rpc('complete_account_login');
     await loadMyProfile();
     if(!myProfile){
       showLogin();   // номер не подтверждён — дальше экрана входа не пускаем
@@ -2057,18 +2058,91 @@ window.ElvaSplash = (() => {
     }
   }
 
+  let accountRecoveryPending=location.hash.includes('type=recovery');
+  let registrationSettings={mode:'phone',login_modes:['phone']};
+  let accountMode='phone',accountAction='login';
+  const AUTH_TITLES={phone:'Телефон',email:'Email и пароль',username:'Логин и пароль'};
+  async function loadRegistrationSettings(){
+    const {data,error}=await sb.rpc('registration_settings');
+    if(error)throw error;
+    registrationSettings=data;accountMode=data.mode;
+  }
+  function renderAccountEntry(mode=registrationSettings.mode,action='login'){
+    accountMode=mode;accountAction=action;
+    const root=document.getElementById('account-entry');root.hidden=false;
+    if(mode==='phone'){root.innerHTML='';loginStep('phone');}
+    else{
+      loginStep('account');
+      const registering=action==='register';
+      root.innerHTML=`<h2 style="font-size:20px">${registering?'Регистрация':'Вход'}: ${AUTH_TITLES[mode]}</h2>
+      <form onsubmit="event.preventDefault();submitAccount()" style="display:grid;gap:12px">
+      <label for="account-login">${mode==='email'?'Email':'Логин'}</label>
+      <input id="account-login" type="${mode==='email'?'email':'text'}" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="254" required>
+      <label for="account-password">Пароль</label>
+      <input id="account-password" type="password" minlength="8" maxlength="128" autocomplete="${registering?'new-password':'current-password'}" required>
+      ${registering?'<label for="account-password-repeat">Повторите пароль</label><input id="account-password-repeat" type="password" minlength="8" maxlength="128" autocomplete="new-password" required>':''}
+      <button id="account-submit" class="btn-primary btn-login" type="submit">${registering?'Зарегистрироваться':'Войти'}</button>
+      <p id="account-message" class="login-hint" role="status" aria-live="polite"></p></form>
+      <button class="btn-call" onclick="accountRecovery()">Забыли пароль?</button>`;
+    }
+    document.getElementById('account-methods').innerHTML=`<p class="login-hint">${action==='register'?'Уже есть аккаунт?':'Нет аккаунта?'}</p>
+    <button class="btn-call" onclick="renderAccountEntry('${registrationSettings.mode}','${action==='register'?'login':'register'}')">${action==='register'?'Войти':'Зарегистрироваться'}</button>
+    <p class="login-hint">Вход для ранее зарегистрированных пользователей</p>`+
+    registrationSettings.login_modes.filter(m=>m!==mode).map(m=>`<button class="btn-call" onclick="renderAccountEntry('${m}','login')">${AUTH_TITLES[m]}</button>`).join('');
+    if(mode==='phone')root.hidden=true;
+  }
+  async function submitAccount(){
+    const btn=document.getElementById('account-submit'),msg=document.getElementById('account-message');
+    const password=document.getElementById('account-password').value;
+    if(accountAction==='register'&&password!==document.getElementById('account-password-repeat').value){msg.textContent='Пароли не совпадают';return;}
+    btn.disabled=true;msg.textContent='Проверяем…';
+    try{
+      const {data,error}=await sb.functions.invoke('account-auth',{body:{action:accountAction,mode:accountMode,login:document.getElementById('account-login').value,password}});
+      if(error){let message='Не удалось войти. Попробуйте позже';try{message=(await error.context.json()).error||message}catch(_){}throw new Error(message)}
+      if(data.confirmation_required){msg.textContent='Проверьте почту и подтвердите email. Затем вернитесь сюда и войдите.';return;}
+      if(!data.session)throw new Error(data.error||'Не удалось войти');
+      const session=await sb.auth.setSession(data.session);if(session.error)throw session.error;
+      await afterVerified();
+    }catch(e){msg.textContent=e.message||'Не удалось войти';}
+    finally{btn.disabled=false;const p=document.getElementById('account-password');if(p)p.value='';const q=document.getElementById('account-password-repeat');if(q)q.value='';}
+  }
+  async function accountRecovery(){
+    const msg=document.getElementById('account-message');
+    if(accountMode==='username'){msg.textContent='Для восстановления доступа обратитесь в поддержку: '+SUPPORT_EMAIL;return;}
+    const email=document.getElementById('account-login').value.trim();
+    if(!email.includes('@')){msg.textContent='Сначала укажите email';return;}
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+    msg.textContent=error?'Не удалось отправить письмо. Попробуйте позже':'Если аккаунт существует, на почту придёт ссылка для восстановления.';
+  }
+  function showAccountRecovery(){
+    showLogin('account');document.getElementById('account-methods').innerHTML='';
+    document.getElementById('account-entry').hidden=false;
+    document.getElementById('account-entry').innerHTML=`<h2>Новый пароль</h2><form onsubmit="event.preventDefault();saveAccountRecovery()" style="display:grid;gap:12px"><label for="recovery-password">Пароль от 8 символов</label><input id="recovery-password" type="password" minlength="8" maxlength="128" autocomplete="new-password" required><label for="recovery-repeat">Повторите пароль</label><input id="recovery-repeat" type="password" minlength="8" maxlength="128" autocomplete="new-password" required><button class="btn-primary" id="recovery-submit">Сохранить пароль</button><p id="recovery-message" role="status"></p></form>`;
+  }
+  async function saveAccountRecovery(){
+    const password=document.getElementById('recovery-password').value,msg=document.getElementById('recovery-message');
+    if(password.length<8||password!==document.getElementById('recovery-repeat').value){msg.textContent='Проверьте длину и совпадение паролей';return;}
+    const btn=document.getElementById('recovery-submit');btn.disabled=true;
+    const {error}=await sb.auth.updateUser({password});btn.disabled=false;
+    if(error){msg.textContent='Не удалось сохранить пароль';return;}
+    const completed=await sb.rpc('complete_account_login');if(completed.error){msg.textContent='Обратитесь в поддержку для восстановления профиля';return;}
+    await afterVerified();
+  }
+
   // ---------- вход по номеру ----------
   function showLogin(step){
     document.getElementById('view-login').hidden = false;
     document.getElementById('view-passenger').hidden = true;
     document.getElementById('view-driver').hidden = true;
     document.getElementById('burger-btn').classList.add('ghost');
-    loginStep(step || 'phone');
+    if(!step){ renderAccountEntry(); } else { loginStep(step); }
   }
 
   let fallbackPromptTimer = null;
 
   function loginStep(step){
+    document.getElementById('account-entry').hidden=step!=='account';
+    document.getElementById('account-methods').hidden=['name','code','fallback'].includes(step);
     ['phone', 'code', 'fallback', 'name'].forEach(s => {
       document.getElementById('login-step-' + s).hidden = (s !== step);
     });
@@ -2132,6 +2206,7 @@ window.ElvaSplash = (() => {
     }
     showBanner('Звоним...', 'pending');
     try {
+      await ensureAuthSession();
       await callVerify('start');
       hideBanner(true);
       loginStep('code');
@@ -4723,7 +4798,7 @@ window.ElvaSplash = (() => {
   function logoutFromMenu(){
     sb.rpc('app_presence', { p_role: null })
       .then(() => sb.rpc('unlink_current_session'))
-      .then(() => location.reload());
+      .then(() => sb.auth.signOut()).then(() => location.reload());
   }
 
   function menuSoon(what){
