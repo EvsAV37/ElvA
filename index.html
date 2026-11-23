@@ -1133,13 +1133,16 @@
   .ride-route .ride-entry{padding:0;min-width:0;}
   .ride-route .ride-entry label{font-weight:650;}
   .ride-route .ride-entry input{width:100%;font-size:14px;font-weight:700;padding:2px 0;margin:0;min-height:28px;}
-  .ride-entrance{border:0;border-radius:9px;padding:8px 12px;min-height:36px;background:color-mix(in srgb,var(--action) 10%,var(--surface));color:var(--ice);font:inherit;font-size:12px;font-weight:750;cursor:pointer;}
+  .ride-entrance{border:0;border-radius:9px;padding:8px 12px;min-height:36px;background:var(--line);color:var(--text);font:inherit;font-size:12px;font-weight:650;cursor:pointer;}
   .ride-destination{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-height:66px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--text);padding:10px 0;text-align:left;font:inherit;cursor:pointer;}
   .ride-dot{width:11px;height:11px;border-width:1.5px;background:transparent;}
   .ride-address-copy{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere;}
   .ride-address-copy small{font-size:12px;color:var(--muted);font-weight:650;}
   .ride-address-copy strong{font-size:14px;}
-  .ride-route-chevron{font-size:28px;line-height:1;}
+  .ride-destination-row{display:flex;align-items:center;border-top:1px solid var(--line);}
+  .ride-destination-row .ride-destination{flex:1;min-width:0;border-top:0;grid-template-columns:16px minmax(0,1fr);}
+  .ride-add-address{flex:none;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--text);font:inherit;font-size:30px;font-weight:400;cursor:pointer;}
+  .ride-add-address:disabled{color:var(--muted);opacity:.5;cursor:default;}
   .ride-sheet-row{min-height:48px;padding:10px 12px;font-size:14px;font-weight:650;}
   .ride-compose .ride-submit{min-height:44px;margin:0;}
   .ride-search{gap:14px;}
@@ -1230,7 +1233,6 @@ window.ElvaSplash = (() => {
       </button>
       <div class="logo"><svg class="brand-mark" viewBox="41 100 301 182" aria-hidden="true"><use href="elva-brand.svg#ev"/><use class="brand-accent" href="elva-brand.svg#ev-accent"/></svg><svg class="brand-wordmark" viewBox="0 0 1963 707.4" role="img" aria-label="ElvA"><use href="elva-brand.svg#elv"/><use class="brand-accent" href="elva-brand.svg#a"/></svg></div>
     </div>
-    <div class="tagline" data-cfg="tagline">Такси по Олёкминску</div>
   </div>
 
   <!-- Боковое меню. Роль переехала сюда: рейтинг у водителя и пассажира —
@@ -1344,7 +1346,7 @@ window.ElvaSplash = (() => {
   const APP_NAME = CFG.appName;
 
   // Название и город в разметке: заголовок вкладки и строка под логотипом.
-  document.title = APP_NAME + (CFG.tagline ? ' — ' + CFG.tagline.charAt(0).toLowerCase() + CFG.tagline.slice(1) : '');
+  document.title = APP_NAME;
   document.querySelectorAll('[data-cfg]').forEach(el => { el.textContent = CFG[el.dataset.cfg] || ''; });
 
   // Библиотека Supabase грузится с CDN — при плохой связи её может не оказаться.
@@ -2590,7 +2592,7 @@ window.ElvaSplash = (() => {
     };
   }
 
-  function showRideStops(){
+  function showRideStops(addNew = false){
     const dialog = showRideSheet('Адреса прибытия', '<div class="ride-dialog-form"><div class="ride-stops"></div>'
       + '<button class="btn-ghost ride-add-stop">Добавить адрес</button>'
       + '<button class="btn-primary ride-save-stops">Готово</button></div>');
@@ -2679,7 +2681,7 @@ window.ElvaSplash = (() => {
       renderPassenger();
     };
     render();
-    if(!stops.length) dialog.querySelector('.ride-add-stop').click();
+    if((!stops.length || addNew) && stops.length < 8) dialog.querySelector('.ride-add-stop').click();
   }
 
   function rideOrderDetails(o){
@@ -2848,11 +2850,10 @@ window.ElvaSplash = (() => {
               </div>
               <button type="button" class="ride-entrance" onclick="showRideEntrance()">Подъезд${rideDraft.entrance ? ' ' + esc(rideDraft.entrance) : ''}</button>
             </div>
-            <button type="button" class="ride-destination" onclick="showRideStops()">
+            <div class="ride-destination-row"><button type="button" class="ride-destination" onclick="showRideStops()">
               <span class="ride-dot" aria-hidden="true"></span>
               <span class="ride-address-copy"><small>Куда</small><strong>${esc(destination || 'Куда едем?')}</strong></span>
-              <span class="ride-route-chevron" aria-hidden="true">›</span>
-            </button>
+            </button><button type="button" class="ride-add-address" aria-label="Добавить адрес" onclick="showRideStops(true)" ${rideDraft.stops.length >= 8 ? 'disabled' : ''}>+</button></div>
           </div>
           ${rideFormRow(price || 'Предложите цену', '', 'showRidePrice()')}
           ${rideFormRow('Опции', options ? 'Выбрано: ' + options : '', 'showRideOptions()')}
