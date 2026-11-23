@@ -7,7 +7,7 @@
      с экрана «Домой» это видно как вспышка. Чем раньше страница нарисует
      свой первый кадр нашего цвета, тем короче (или вовсе незаметна) эта
      вспышка. Цвет тот же, что у заставки и background_color в манифесте. -->
-<style>html, body{ background: #191b1d; }</style>
+<style data-elva-app>html, body{ background: #191b1d; }</style>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <title>ElvA — такси по Олёкминску</title>
 <!-- Установка на экран «Домой» и push-уведомления -->
@@ -19,9 +19,9 @@
 <meta name="apple-mobile-web-app-title" content="ElvA">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="theme-color" content="#191b1d">
-<script src="elva-theme.js"></script>
-<link rel="stylesheet" href="fonts/onest.css">
-<style>
+<script data-elva-app src="elva-theme.js"></script>
+<link data-elva-app rel="stylesheet" href="fonts/onest.css">
+<style data-elva-app>
   :root{
     color-scheme: light;
     --night: #f4f4f6;
@@ -1189,7 +1189,7 @@
   .ride-agreed-price{color:var(--muted);font-size:12px;margin-top:6px;}
   @media(max-width:350px){.ride-entrance{padding-inline:8px}.ride-route{padding-inline:10px}.ride-search-price{grid-template-columns:52px minmax(0,1fr) 52px}.ride-search-price strong{font-size:30px}}
 </style>
-<link rel="stylesheet" href="elva-brand.css?v=2">
+<link data-elva-app rel="stylesheet" href="elva-brand.css?v=2">
 </head>
 <body>
 
@@ -1204,7 +1204,7 @@
     </div>
   </div>
 </div>
-<script>
+<script data-elva-app>
 window.ElvaSplash = (() => {
   const splash = document.getElementById('splash');
   const minimum = new Promise(resolve => setTimeout(resolve, 450));
@@ -1331,9 +1331,10 @@ window.ElvaSplash = (() => {
 <!-- Библиотека Supabase. Раньше стояла в <head> и держала страницу пустой,
      пока скачивалась; здесь она грузится уже после того, как заставка на экране. -->
 <!-- Настройки (сервер, город, почта поддержки…) — в отдельном файле elva-config.js. -->
-<script src="elva-config.js"></script>
-<script src="vendor/supabase-2.119.2.js"></script>
-<script>
+<script data-elva-app src="elva-updates.js" data-elva-updates></script>
+<script data-elva-app src="elva-config.js"></script>
+<script data-elva-app src="vendor/supabase-2.119.2.js"></script>
+<script data-elva-app>
   // ---------- настройки ----------
   // Все значения — в elva-config.js. Если файла нет, CFG_MISSING = true:
   // приложение покажет понятное сообщение, а не упадёт.
@@ -1943,7 +1944,7 @@ window.ElvaSplash = (() => {
   async function initPush(){
     if(location.protocol !== 'https:' || !('serviceWorker' in navigator)) return;
     try {
-      swReg = await navigator.serviceWorker.register('./sw.js');
+      swReg = await navigator.serviceWorker.register('./sw.js', {updateViaCache:'none'});
     } catch(e){
       console.error('service worker:', e);
       return;
@@ -4843,6 +4844,17 @@ window.ElvaSplash = (() => {
   }
 
   init();
+
+  window.ElvaUpdates?.start({canReload:async()=>{
+    if(!appStarted || !myProfile || submittingOffers.size || acceptingOffers.size)return false;
+    if(document.querySelector('[role="dialog"]:not([hidden])'))return false;
+    if(offers.some(of=>of.driverId===driverId))return false;
+    // Сверяем состояние с сервером только когда найдена новая версия.
+    const {data,error}=await sb.from('orders').select('id')
+      .or('passenger_id.eq.'+passengerId+',driver_id.eq.'+driverId)
+      .not('status','in','(done,cancelled)').limit(1);
+    return !error && Array.isArray(data) && data.length===0;
+  }});
 
   setInterval(() => {
     if(appStarted && currentView === 'driver' && driverApplication?.status === 'pending'
