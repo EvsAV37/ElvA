@@ -1118,6 +1118,72 @@
   .ride-eta-actions{ display:grid; gap:8px; }
   .ride-price-quick{ display:flex; gap:6px; }
   .ride-price-quick button{ flex:1; }
+
+  .ride-eta-summary{background:var(--surface-2);border-radius:12px;padding:12px;font-size:13px;}
+  .ride-eta-summary p{margin:8px 0 0;line-height:1.4;}
+  .ride-eta-actions .btn-accept{min-height:44px;border-radius:24px;margin:0;}
+  .ride-price-other{border:0;background:transparent;color:var(--muted);font:inherit;font-size:12px;min-height:32px;cursor:pointer;}
+  .ride-cancel-text{font-size:14px;color:var(--muted);margin:0 0 16px;}
+  .ride-cancel-search{color:var(--danger);}
+  /* Layout matched to the agreed ElvA screen reference. */
+  .ride-compose{gap:8px;}
+  .ride-route{padding:12px 14px;border-radius:18px;background:var(--surface-2);}
+  .ride-route::before{display:none;}
+  .ride-route .field{grid-template-columns:16px minmax(0,1fr) auto;gap:10px;margin:0;min-height:66px;}
+  .ride-route .ride-entry{padding:0;min-width:0;}
+  .ride-route .ride-entry label{font-weight:650;}
+  .ride-route .ride-entry input{width:100%;font-size:14px;font-weight:700;padding:2px 0;margin:0;min-height:28px;}
+  .ride-entrance{border:0;border-radius:9px;padding:8px 12px;min-height:36px;background:color-mix(in srgb,var(--action) 10%,var(--surface));color:var(--ice);font:inherit;font-size:12px;font-weight:750;cursor:pointer;}
+  .ride-destination{display:grid;grid-template-columns:16px minmax(0,1fr) auto;gap:10px;align-items:center;width:100%;min-height:66px;border:0;border-top:1px solid var(--line);background:transparent;color:var(--text);padding:10px 0;text-align:left;font:inherit;cursor:pointer;}
+  .ride-dot{width:11px;height:11px;border-width:1.5px;background:transparent;}
+  .ride-address-copy{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere;}
+  .ride-address-copy small{font-size:12px;color:var(--muted);font-weight:650;}
+  .ride-address-copy strong{font-size:14px;}
+  .ride-route-chevron{font-size:28px;line-height:1;}
+  .ride-sheet-row{min-height:48px;padding:10px 12px;font-size:14px;font-weight:650;}
+  .ride-compose .ride-submit{min-height:44px;margin:0;}
+  .ride-search{gap:14px;}
+  #view-passenger:has(.order-card.searching)>.order-title{text-align:center;}
+  .ride-search-price{grid-template-columns:68px minmax(0,1fr) 68px;gap:10px;}
+  .ride-search-price strong{font-size:36px;line-height:1.2;}
+  .ride-search button:disabled{background:var(--line);color:var(--muted);opacity:1;cursor:default;}
+  .ride-search-price .btn-accept{min-height:50px;border-radius:14px;margin:0;}
+  .ride-search>.btn-primary{margin:4px 0 0;min-height:44px;border-radius:14px;}
+  .ride-search-actions{gap:14px;margin-top:4px;}
+  .ride-search-actions button{display:grid;justify-items:center;align-content:start;gap:7px;border:0;background:transparent;color:var(--text);font:inherit;font-size:12px;font-weight:750;cursor:pointer;padding:0 2px;}
+  .ride-search-actions button>span{display:grid;place-items:center;width:40px;height:40px;border-radius:50%;background:var(--line);font-size:24px;font-weight:400;}
+  .ride-search-actions button:last-child{color:var(--danger);}
+  .ride-price-label{font-size:13px;}
+  .ride-viewers{font-size:13px;line-height:1.5;}
+  .ride-viewer-badges span{width:32px;height:32px;background:color-mix(in srgb,var(--action) 12%,var(--surface));color:var(--ice);font-size:11px;font-weight:750;border:0;}
+  .ride-viewer-badges span:last-child{background:var(--line);color:var(--muted);}
+  .ride-dialog{padding:20px 18px max(18px,env(safe-area-inset-bottom));}
+  .ride-dialog::before{content:'';display:block;width:28px;height:3px;border-radius:4px;background:var(--line);margin:-10px auto 14px;}
+  .ride-dialog-title{font-size:19px;margin-bottom:14px;}
+  .ride-close{min-width:28px;min-height:28px;width:28px;height:28px;font-size:20px;color:var(--muted);}
+  .ride-dialog .btn-primary,.ride-dialog .btn-ghost{min-height:44px;margin:0;border-radius:22px;}
+  .ride-dialog-form{gap:10px;}
+  #ride-price-input{font-size:30px;min-height:62px;font-weight:750;}
+  .ride-dialog-form input[aria-label="Номер подъезда"]{text-align:center;font-size:28px;font-weight:750;}
+  .ride-checkbox{justify-content:space-between;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:10px 12px;font-size:14px;font-weight:650;}
+  .ride-checkbox input{appearance:none;-webkit-appearance:none;flex:none;width:36px;height:22px;min-height:22px;border:0;border-radius:15px;background:var(--control-border);cursor:pointer;position:relative;margin:0;}
+  .ride-checkbox input::after{content:'';position:absolute;left:3px;top:3px;width:16px;height:16px;background:white;border-radius:50%;transition:transform .15s;}
+  .ride-checkbox input:checked{background:var(--action);}
+  .ride-checkbox input:checked::after{transform:translateX(14px);}
+  .ride-stop{gap:8px;min-height:60px;font-size:14px;}
+  .ride-remove{font-size:12px;background:transparent;}
+  .ride-drag{font-size:20px;background:transparent;}
+  .ride-details-close{width:100%;margin-top:12px!important;}
+  .ride-offer-bottom{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:12px;}
+  .ride-offer-bottom>div{display:flex;align-items:baseline;flex-wrap:wrap;gap:5px;color:var(--ice);}
+  .ride-offer-bottom small{font-size:11px;}
+  .ride-offer-bottom .btn-accept{width:auto;min-height:36px;margin:0;padding:8px 16px;}
+  .ride-offer-fare .ob-eta{font-size:14px;color:var(--text);}
+  .ride-offer-fare small{display:block;font-size:11px;color:var(--muted);}
+  .ride-offer-car .ob-car{font-size:20px;font-weight:750;}
+  .ride-offer-car .ob-color{display:block;font-size:12px;}
+  .ride-agreed-price{color:var(--muted);font-size:12px;margin-top:6px;}
+  @media(max-width:350px){.ride-entrance{padding-inline:8px}.ride-route{padding-inline:10px}.ride-search-price{grid-template-columns:52px minmax(0,1fr) 52px}.ride-search-price strong{font-size:30px}}
 </style>
 <link rel="stylesheet" href="elva-brand.css?v=2">
 </head>
@@ -2295,16 +2361,17 @@ window.ElvaSplash = (() => {
             <div class="ride-offer-grid">
               ${personBig(avatarHtml(of.driverName, driverAvatar(of.driverId), 40), of.driverName, ratingBadge(driverProfiles[of.driverId]))}
               <div class="ride-offer-fare">
-                <span class="price-l">${esc(of.price)} ₽</span>
-                ${Number(of.price) === Number(order.price) ? '<small>Ваша цена</small>' : ''}
-                <span class="ob-eta">подача ${esc(of.eta)} мин</span>
+                <strong class="ob-eta">${esc(of.eta)} мин</strong>
+                <small>Подача</small>
               </div>
               ${of.car ? `<div class="ride-offer-car">
                 <span class="ob-car">${esc(of.car.model)}</span>
                 ${of.car.color ? `<span class="ob-color"> · ${esc(of.car.color)}</span>` : ''}
               </div>` : ''}
             </div>
-            <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})" ${accepting === undefined ? '' : 'disabled'}>${accepting === of.id ? 'Выбираем…' : 'Выбрать'}</button>
+            <div class="ride-offer-bottom"><div><strong class="price-l">${esc(of.price)} ₽</strong>
+              ${Number(of.price) === Number(order.price) ? '<small>Ваша цена</small>' : ''}</div>
+              <button class="btn-accept" onclick="acceptOffer(${order.id}, ${of.id})" ${accepting === undefined ? '' : 'disabled'}>${accepting === of.id ? 'Выбираем…' : 'Выбрать'}</button></div>
           </div>
         `).join('')}
       </div>
@@ -2460,25 +2527,33 @@ window.ElvaSplash = (() => {
   }
 
   function showRidePrice(){
-    const dialog = showRideSheet('Укажите вашу цену', '<form class="ride-dialog-form"><label for="ride-price-input">Цена, ₽</label>'
-      + '<input id="ride-price-input" inputmode="numeric" pattern="[0-9]+" maxlength="6" required>'
-      + '<label for="ride-payment">Способ оплаты</label><select id="ride-payment"><option value="cash">Наличными</option>'
-      + '<option value="transfer">Перевод</option></select><button class="btn-primary">Заказать</button></form>');
+    const dialog = showRideSheet('Укажите вашу цену', '<form class="ride-dialog-form ride-price-form">'
+      + '<input id="ride-price-input" aria-label="Цена, ₽" inputmode="numeric" pattern="[0-9]+" maxlength="6" required>'
+      + '<button type="button" class="ride-sheet-row ride-payment-choice"><span>' + (rideDraft.payment === 'transfer' ? 'Перевод' : 'Наличными водителю') + '</span><span aria-hidden="true">›</span></button>'
+      + '<button class="btn-primary">Заказать</button></form>');
     const price = dialog.querySelector('input');
-    const payment = dialog.querySelector('select');
     price.value = rideDraft.price;
-    payment.value = rideDraft.payment;
+    const submit = dialog.querySelector('button.btn-primary');
+    submit.disabled = !validRidePrice(price.value);
     price.oninput = () => {
       price.value = price.value.replace(/\D/g, '');
       rideDraft.price = price.value;
+      submit.disabled = !validRidePrice(price.value);
       renderPassenger();
     };
-    payment.onchange = () => { rideDraft.payment = payment.value; renderPassenger(); };
-    dialog.querySelector('form').onsubmit = event => {
-      event.preventDefault();
-      submitOrder();
-    };
+    dialog.querySelector('.ride-payment-choice').onclick = showRidePayment;
+    dialog.querySelector('form').onsubmit = event => { event.preventDefault(); submitOrder(); };
     price.focus();
+  }
+
+  function showRidePayment(){
+    const dialog = showRideSheet('Способы оплаты', '<div class="ride-dialog-form">'
+      + ['cash','transfer'].map(value => '<button type="button" class="ride-sheet-row" data-payment="' + value + '" aria-pressed="' + (rideDraft.payment === value) + '"><span>' + (value === 'cash' ? 'Наличными водителю' : 'Перевод') + '</span><span>' + (rideDraft.payment === value ? '✓' : '') + '</span></button>').join('') + '</div>');
+    dialog.querySelectorAll('[data-payment]').forEach(button => button.onclick = () => {
+      rideDraft.payment = button.dataset.payment;
+      renderPassenger();
+      showRidePrice();
+    });
   }
 
   function showRideEntrance(){
@@ -2497,8 +2572,8 @@ window.ElvaSplash = (() => {
 
   function showRideOptions(){
     const dialog = showRideSheet('Опции', '<form class="ride-dialog-form">'
-      + '<label class="ride-checkbox"><input type="checkbox" name="largeParty"> Больше 4 пассажиров</label>'
-      + '<label class="ride-checkbox"><input type="checkbox" name="childSeat"> Детское кресло</label>'
+      + '<label class="ride-checkbox"><span>Больше 4 пассажиров</span><input type="checkbox" name="largeParty" role="switch"></label>'
+      + '<label class="ride-checkbox"><span>Детское кресло</span><input type="checkbox" name="childSeat" role="switch"></label>'
       + '<label for="ride-comment">Комментарий</label><textarea id="ride-comment" maxlength="500" placeholder="Подъезд со двора"></textarea>'
       + '<button class="btn-primary">Готово</button></form>');
     const form = dialog.querySelector('form');
@@ -2621,7 +2696,8 @@ window.ElvaSplash = (() => {
   function showRideDetails(id, driver = false){
     const order = orders.find(o => o.id === id);
     if(!order) return;
-    showRideSheet('Детали заказа', rideOrderDetails(order));
+    const dialog = showRideSheet('Детали заказа', rideOrderDetails(order) + '<button type="button" class="btn-ghost ride-details-close">Закрыть</button>');
+    dialog.querySelector('.ride-details-close').onclick = () => dialog.close();
     if(driver && order.status === 'searching') recordDriverOrderView(id);
   }
 
@@ -2702,6 +2778,11 @@ window.ElvaSplash = (() => {
     const viewers = searchViewers.orderId === order.id ? searchViewers : null;
     const names = viewers?.names ?? [];
     const remaining = Math.max(0, (viewers?.count ?? 0) - names.length);
+    const actions = `<div class="ride-search-actions">
+      <button type="button" onclick="showRideDetails(${order.id})"><span aria-hidden="true">☰</span>Детали заказа</button>
+      <button type="button" onclick="cancelOrder(${order.id})"><span aria-hidden="true">×</span>Отменить поиск</button>
+    </div>`;
+    if(offers.some(of => of.orderId === order.id)) return actions;
     return `<div class="ride-search">
       ${viewers?.count ? `<div class="ride-viewers"><span>Водители смотрят ваше предложение</span><div class="ride-viewer-badges">
         ${names.map(name => `<span title="${escapeAttr(name)}">${esc(name.trim().charAt(0).toUpperCase() || 'В')}</span>`).join('')}
@@ -2715,10 +2796,7 @@ window.ElvaSplash = (() => {
       </div>
       ${changed ? `<div class="ride-price-label">Сейчас в заказе ${esc(order.price)} ₽</div>` : ''}
       <button class="btn-primary" onclick="offerNewSearchPrice(${order.id})" ${!changed || updatingSearchPrice ? 'disabled' : ''}>${updatingSearchPrice ? 'Отправляем…' : 'Предложить цену'}</button>
-      <div class="ride-search-actions">
-        <button class="btn-ghost" onclick="showRideDetails(${order.id})"><span aria-hidden="true">☰</span>Детали заказа</button>
-        <button class="btn-ghost" onclick="cancelOrder(${order.id})"><span aria-hidden="true">×</span>Отменить поиск</button>
-      </div>
+      ${actions}
     </div>`;
   }
 
@@ -2768,10 +2846,14 @@ window.ElvaSplash = (() => {
               <div class="ride-entry"><label for="f-from">Откуда</label>
                 <input id="f-from" type="text" maxlength="180" placeholder="ул. Ленина, 10">
               </div>
+              <button type="button" class="ride-entrance" onclick="showRideEntrance()">Подъезд${rideDraft.entrance ? ' ' + esc(rideDraft.entrance) : ''}</button>
             </div>
+            <button type="button" class="ride-destination" onclick="showRideStops()">
+              <span class="ride-dot" aria-hidden="true"></span>
+              <span class="ride-address-copy"><small>Куда</small><strong>${esc(destination || 'Куда едем?')}</strong></span>
+              <span class="ride-route-chevron" aria-hidden="true">›</span>
+            </button>
           </div>
-          ${rideFormRow('Подъезд', rideDraft.entrance, 'showRideEntrance()')}
-          ${rideFormRow('Куда', destination, 'showRideStops()')}
           ${rideFormRow(price || 'Предложите цену', '', 'showRidePrice()')}
           ${rideFormRow('Опции', options ? 'Выбрано: ' + options : '', 'showRideOptions()')}
           <button class="btn-primary ride-submit" onclick="submitOrder()" ${orderSubmission?.busy ? 'disabled' : ''}>Заказать</button>
@@ -2804,7 +2886,7 @@ window.ElvaSplash = (() => {
             <span>${esc(order.driverName)} ${ratingBadge(driverProfiles[order.driverId])}${order.car ? ' · ' + esc(carTitle(order.car)) : ''}</span>
           </div>` : ''}
         `}
-        ${order.status === 'searching' ? `<div class="order-route">${esc(order.from)}<span class="arrow">→</span>${esc(order.to)}</div>${passengerOffersList(order)}` : ''}
+        ${order.status === 'searching' && offers.some(of => of.orderId === order.id) ? `<div class="order-route">${esc(order.stops?.length > 1 ? [order.from, ...order.stops].join(' → ') : order.from + ' → ' + order.to)}</div><div class="ride-agreed-price">Ваша цена ${esc(order.price)} ₽</div>${passengerOffersList(order)}` : ''}
         ${order.status === 'arrived' ? `
           <div class="driver-info">
             ${passengerWaitBlock(order)}
@@ -2943,14 +3025,24 @@ window.ElvaSplash = (() => {
   }
 
   async function cancelOrder(id){
-    const result = await confirmSheet({
-      title: 'Отменить поиск?', text: 'Водители перестанут видеть этот заказ.',
-      okText: 'Отменить заказ', cancelText: 'Продолжить поиск', reasons: PASSENGER_CANCEL_REASONS
-    });
-    if(!result) return;
-    const { error } = await sb.rpc('cancel_order_with_reason', { p_order_id: id, p_reason: result.reason });
-    if(error) showBanner('Не удалось отменить заказ. Проверьте его статус и попробуйте ещё раз.', 'error');
-    fetchOrders();
+    const dialog = showRideSheet('Отменить поиск?', '<p class="ride-cancel-text">Водители перестанут видеть этот заказ.</p>'
+      + '<div class="ride-dialog-form"><button type="button" class="btn-primary ride-continue-search">Продолжить поиск</button>'
+      + '<button type="button" class="btn-ghost ride-cancel-search">Отменить заказ</button><div role="alert"></div></div>');
+    dialog.querySelector('.ride-continue-search').onclick = () => dialog.close();
+    const button = dialog.querySelector('.ride-cancel-search');
+    button.onclick = async () => {
+      if(button.disabled) return;
+      button.disabled = true;
+      try {
+        const { error } = await sb.rpc('cancel_order_with_reason', { p_order_id: id, p_reason: 'other' });
+        if(error) throw error;
+        dialog.close();
+        await fetchOrders();
+      } catch(error) {
+        dialog.querySelector('[role=alert]').textContent = 'Не удалось отменить заказ. Попробуйте ещё раз.';
+        button.disabled = false;
+      }
+    };
   }
 
   const PASSENGER_CANCEL_REASONS = [['plans_changed','Планы изменились'], ['wait_too_long','Долго ждать'], ['other','Другая причина']];
@@ -3242,12 +3334,11 @@ window.ElvaSplash = (() => {
           ${rideOrderDetails(o)}
           <div class="req-actions offer-actions">
             <button class="btn-accept" onclick="openDriverEta(${o.id})">Принять за ${esc(o.price)} ₽</button>
+            <button class="ride-price-other" onclick="openDriverEta(${o.id}, true)">Предложить другую цену</button>
             <div class="ride-price-quick">
               ${[20, 40, 60].filter(n => Number(o.price) + n <= 999999).map(n =>
-                `<button class="btn-ghost" onclick="openDriverEta(${o.id}, ${Number(o.price) + n})">${Number(o.price) + n} ₽</button>`).join('')}
+                `<button class="btn-accept" onclick="openDriverEta(${o.id}, ${Number(o.price) + n})">${Number(o.price) + n} ₽</button>`).join('')}
             </div>
-            <button class="btn-ghost" onclick="openDriverEta(${o.id}, true)">Предложить другую цену</button>
-            <button class="btn-ghost" onclick="showRideDetails(${o.id}, true)">Детали заказа</button>
             <button class="btn-ghost" onclick="skipRide(${o.id})">Пропустить</button>
           </div>
         </div>
@@ -3319,12 +3410,13 @@ window.ElvaSplash = (() => {
     void recordDriverOrderView(id);
     const fixedPrice = counter ?? order.price;
     const dialog = showRideSheet('Укажите время прибытия', `<div class="ride-dialog-form">
-      <p>${esc(order.from)} → ${order.stops.map(esc).join(' → ')}</p>
+      <div class="ride-eta-summary">${personBig(avatarHtml(passengerProfiles[order.passengerId]?.name || 'Пассажир', passengerAvatar(order.passengerId), 34), passengerProfiles[order.passengerId]?.name || 'Пассажир', ratingBadge(passengerProfiles[order.passengerId]))}<p>${esc([order.from, ...order.stops].join(' → '))}</p></div>
       ${counter === true ? '<label for="driver-counter">Ваша цена, ₽</label><input id="driver-counter" inputmode="numeric" maxlength="6">'
         : '<strong>' + esc(fixedPrice) + ' ₽</strong>'}
       <div class="ride-eta-actions">${[5, 10, 15, 20].map(n => `<button class="btn-accept" data-minutes="${n}">${n} мин</button>`).join('')}</div>
-      <div role="alert"></div>
+      <div role="alert"></div><button type="button" class="btn-ghost ride-eta-cancel">Отмена</button>
     </div>`);
+    dialog.querySelector('.ride-eta-cancel').onclick = () => dialog.close();
     const field = dialog.querySelector('input');
     const buttons = [...dialog.querySelectorAll('[data-minutes]')];
     const sync = () => buttons.forEach(button => {
@@ -3629,7 +3721,7 @@ window.ElvaSplash = (() => {
     driver: [
       { q: 'Как взять заказ?', a: `
         <p>Сначала добавьте машину: марку, цвет и госномер. Без машины заказы видно, но принять их нельзя. Приложение попросит об этом при первом отклике на заказ.</p>
-        <p>Свободные заказы видны в <b>«Ленте заказов»</b>. Нажмите «Принять за … ₽», чтобы согласиться с ценой пассажира, или «Предложить другую цену». Затем выберите время подачи и подтвердите.</p>
+        <p>Свободные заказы видны в <b>«Ленте заказов»</b>. Нажмите «Принять за … ₽», чтобы согласиться с ценой пассажира, или «Предложить другую цену». Нажатие на время подачи сразу отправляет предложение.</p>
         <p>Пассажир увидит ваше предложение рядом с предложениями других водителей и выберет.</p>` },
       { q: 'Как изменить машину?', a: `
         <p>В меню — <b>«Моя машина»</b>. Новые данные увидят пассажиры в следующих предложениях. Уже отправленные предложения и идущая поездка остаются с прежней машиной.</p>` },
