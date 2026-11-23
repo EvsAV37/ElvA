@@ -537,6 +537,26 @@
     loadPhotoSettings().then(renderTabs);
   }
 
+  async function renderRegistration(){
+    const root=$('tab-body');root.innerHTML='<div class="card">Загружаем настройки…</div>';
+    const {data,error}=await sb.rpc('registration_settings');
+    if(currentTab!=='registration')return;
+    if(error){root.innerHTML='<div class="card">Не удалось загрузить настройки</div>';return;}
+    root.innerHTML=`<div class="card"><h2>Регистрация пользователей</h2><p>Выберите способ регистрации новых пассажиров и водителей. Ранее созданные аккаунты сохраняют свой способ входа.</p>
+    <label for="registration-mode">Способ регистрации</label><select id="registration-mode"><option value="phone">Номер телефона</option><option value="email">Email и пароль</option><option value="username">Логин и пароль</option></select>
+    <p id="registration-note" class="note plain"></p><button class="btn-primary" id="registration-save" onclick="saveRegistration()">Сохранить</button><p class="msg" id="registration-message" role="status"></p></div>`;
+    $('registration-mode').value=data.mode;$('registration-mode').addEventListener('change',updateRegistrationNote);updateRegistrationNote();
+  }
+  function updateRegistrationNote(){
+    const notes={phone:'Для подтверждения номера нужен подключённый поставщик звонков. Настройка не подключает поставщика автоматически.',email:'Пользователь подтверждает email письмом. До включения настройте почту и адрес возврата в Supabase.',username:'Логин и пароль без письма. При утрате пароля пользователь обращается в поддержку. Телефон не считается подтверждённым.'};
+    $('registration-note').textContent=notes[$('registration-mode').value];
+  }
+  async function saveRegistration(){
+    const btn=$('registration-save');btn.disabled=true;$('registration-message').textContent='Сохраняем…';
+    const {error}=await sb.rpc('admin_set_registration',{p_mode:$('registration-mode').value});
+    btn.disabled=false;$('registration-message').textContent=error?'Не удалось сохранить. Проверьте права главного администратора.':'Сохранено. Новый способ появится при открытии приложения.';
+  }
+
   // ---------- вкладки ----------
   const TABS = [
     { id: 'dispatch', title: 'Пульт', render: renderDispatch },
@@ -547,6 +567,7 @@
     { id: 'stats',   title: 'Цифры',  render: renderStats },
     { id: 'log',     title: 'Журнал', render: renderLog,    main: true },
     { id: 'admins',  title: 'Админы', render: renderAdmins, main: true },
+    { id: 'registration', title: 'Регистрация', render: renderRegistration, main: true },
     { id: 'account', title: 'Пароль', render: renderAccount }
   ];
   let currentTab = 'dispatch';
