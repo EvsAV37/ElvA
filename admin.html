@@ -82,14 +82,14 @@
 
   /* Поля */
   label{ display: block; font-size: var(--fs-s); color: var(--muted); font-weight: 600; margin: 0 0 -4px; }
-  input, textarea{
+  input, textarea, #registration-mode{
     width: 100%; min-height: var(--btn-h); padding: 12px 14px;
     background: var(--surface); color: var(--text);
     border: 1px solid var(--line); border-radius: var(--r-in);
     font-family: inherit; font-size: var(--fs-m);   /* ровно 16: иначе iPhone приближает экран */
     outline: none; transition: border-color 0.15s ease;
   }
-  input:focus, textarea:focus{ border-color: var(--ice); }
+  input:focus, textarea:focus, #registration-mode:focus{ border-color: var(--ice); }
   textarea{ resize: none; min-height: 88px; }
 
   /* Кнопки: три вида, одна высота (как в приложении).
@@ -400,7 +400,7 @@
 
 <!-- Настройки (адрес сервера, название, город) — общий файл с приложением. -->
 <script src="elva-config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vendor/supabase-2.119.2.js"></script>
 <script>
   // Без этого пустого обработчика iPhone не показывает :active у кнопок.
   document.addEventListener('touchstart', () => {}, { passive: true });
@@ -537,6 +537,29 @@
     loadPhotoSettings().then(renderTabs);
   }
 
+  async function renderRegistration(){
+    const root=$('tab-body');root.innerHTML='<div class="card">Загружаем настройки…</div>';
+    const {data,error}=await sb.rpc('registration_settings');
+    if(currentTab!=='registration')return;
+    if(error){root.innerHTML='<div class="card">Не удалось загрузить настройки</div>';return;}
+    root.innerHTML=`<div class="card"><h2>Регистрация пользователей</h2><p>Выберите способ регистрации новых пассажиров и водителей. Ранее созданные аккаунты сохраняют свой способ входа.</p>
+    <label for="registration-mode">Способ регистрации</label><select id="registration-mode"><option value="phone">Номер телефона</option><option value="email">Email и пароль</option><option value="username">Логин и пароль</option></select>
+    <p id="registration-note" class="note plain"></p><button class="btn-primary" id="registration-save" onclick="saveRegistration()">Сохранить</button><p class="msg" id="registration-message" role="status"></p></div>`;
+    $('registration-mode').value=data.mode;$('registration-mode').addEventListener('change',updateRegistrationNote);updateRegistrationNote();
+  }
+  function updateRegistrationNote(){
+    const notes={phone:'Для подтверждения номера нужен подключённый поставщик звонков. Настройка не подключает поставщика автоматически.',email:'Пользователь подтверждает email письмом. До включения настройте почту и адрес возврата в Supabase.',username:'Логин и пароль без письма. При утрате пароля пользователь обращается в поддержку. Телефон не считается подтверждённым.'};
+    $('registration-note').textContent=notes[$('registration-mode').value];
+  }
+  async function saveRegistration(){
+    const btn=$('registration-save');btn.disabled=true;$('registration-message').textContent='Сохраняем…';
+    try{
+      const {error}=await sb.rpc('admin_set_registration',{p_mode:$('registration-mode').value});
+      $('registration-message').textContent=error?'Не удалось сохранить. Проверьте права главного администратора.':'Сохранено. Новый способ появится при открытии приложения.';
+    }catch(_){$('registration-message').textContent='Нет связи с сервером. Попробуйте ещё раз';}
+    finally{btn.disabled=false;}
+  }
+
   // ---------- вкладки ----------
   const TABS = [
     { id: 'dispatch', title: 'Пульт', render: renderDispatch },
@@ -547,6 +570,7 @@
     { id: 'stats',   title: 'Цифры',  render: renderStats },
     { id: 'log',     title: 'Журнал', render: renderLog,    main: true },
     { id: 'admins',  title: 'Админы', render: renderAdmins, main: true },
+    { id: 'registration', title: 'Регистрация', render: renderRegistration, main: true },
     { id: 'account', title: 'Пароль', render: renderAccount }
   ];
   let currentTab = 'dispatch';
@@ -831,7 +855,7 @@
       <div class="row click ${p.id === selectedPersonId ? 'sel' : ''}" onclick="openPerson('${p.id}')">
         <div class="row-main">${esc(p.name || 'Без имени')}${p.is_driver ? '<span class="tag">водитель</span>' : ''}${
           p.ban_scope ? `<span class="tag red">${p.ban_scope === 'all' ? 'заблокирован' : 'бан водителя'}</span>` : ''}</div>
-        <div class="row-sub">${esc(p.phone)} · с ${esc(fmtDate(p.created_at))}${p.last_active_at ? ' · был ' + esc(fmtTime(p.last_active_at)) : ''}</div>
+        <div class="row-sub">${esc(p.phone || 'Без телефона')} · с ${esc(fmtDate(p.created_at))}${p.last_active_at ? ' · был ' + esc(fmtTime(p.last_active_at)) : ''}</div>
       </div>`).join('') + (list.length === 20 ? '<div class="note">Показаны первые 20. Уточните запрос.</div>' : '') + `</div>`;
   }
 
@@ -1037,7 +1061,7 @@
           <h2>${esc(p.name || 'Без имени')}${drv ? '<span class="tag">водитель</span>' : ''}${
           data.active_ban ? `<span class="tag red">${data.active_ban.scope === 'all' ? 'заблокирован' : 'бан водителя'}</span>` : ''}</h2>
         </div>
-        <a class="phone-link" href="tel:${esc(tel)}">${esc(p.phone)}</a>
+        ${p.phone ? `<a class="phone-link" href="tel:${esc(tel)}">${esc(p.phone)}</a>` : `<div class="muted">${p.email ? 'Email: '+esc(p.email) : p.login ? 'Логин: '+esc(p.login) : 'Телефон не указан'}</div>`}
         <dl class="kv">
           <dt>Регистрация</dt><dd>${esc(fmtDate(p.created_at))}</dd>
           <dt>В приложении</dt><dd>${inAppNow
