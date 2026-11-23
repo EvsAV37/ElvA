@@ -859,6 +859,7 @@
   .plate .ph{ color: #c3c6cc; }
   .plate-sm{ font-size: 14px; }
   .plate-lg{ font-size: 34px; }
+  .plate-review{ font-size: clamp(28px, 10vw, 42px); }
 
   .ob-car{ font-size: var(--fs-m); font-weight: 800; line-height: 1.3; color: var(--text); }
   .ob-color{ font-size: var(--fs-s); font-weight: 500; line-height: 1.3; color: var(--text); }
@@ -3949,7 +3950,7 @@ window.ElvaSplash = (() => {
     if(status === 'pending'){
       content = `<div class="car-review-status" role="status">На проверке</div>
         <div class="support-title">${esc(carTitle(driverApplication))}</div>
-        <div>${plateHtml(driverApplication.plate, 'sm')}</div>
+        <div>${plateHtml(driverApplication.plate, 'review')}</div>
         <p class="support-text">После одобрения здесь откроются заказы.</p>
         <button class="btn-ghost" onclick="fetchMyCar()">Проверить статус</button>`;
     } else if(status === 'returned'){
