@@ -1332,7 +1332,7 @@ window.ElvaSplash = (() => {
      пока скачивалась; здесь она грузится уже после того, как заставка на экране. -->
 <!-- Настройки (сервер, город, почта поддержки…) — в отдельном файле elva-config.js. -->
 <script src="elva-config.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="vendor/supabase-2.119.2.js"></script>
 <script>
   // ---------- настройки ----------
   // Все значения — в elva-config.js. Если файла нет, CFG_MISSING = true:
@@ -2060,7 +2060,7 @@ window.ElvaSplash = (() => {
 
   let accountRecoveryPending=location.hash.includes('type=recovery');
   let registrationSettings={mode:'phone',login_modes:['phone']};
-  let accountMode='phone',accountAction='login';
+  let accountMode='phone',accountAction='login',accountBusy=false;
   const AUTH_TITLES={phone:'Телефон',email:'Email и пароль',username:'Логин и пароль'};
   async function loadRegistrationSettings(){
     const {data,error}=await sb.rpc('registration_settings');
@@ -2068,6 +2068,7 @@ window.ElvaSplash = (() => {
     registrationSettings=data;accountMode=data.mode;
   }
   function renderAccountEntry(mode=registrationSettings.mode,action='login'){
+    if(accountBusy)return;
     accountMode=mode;accountAction=action;
     const root=document.getElementById('account-entry');root.hidden=false;
     if(mode==='phone'){root.innerHTML='';loginStep('phone');}
@@ -2092,10 +2093,11 @@ window.ElvaSplash = (() => {
     if(mode==='phone')root.hidden=true;
   }
   async function submitAccount(){
+    if(accountBusy)return;
     const btn=document.getElementById('account-submit'),msg=document.getElementById('account-message');
     const password=document.getElementById('account-password').value;
     if(accountAction==='register'&&password!==document.getElementById('account-password-repeat').value){msg.textContent='Пароли не совпадают';return;}
-    btn.disabled=true;msg.textContent='Проверяем…';
+    accountBusy=true;btn.disabled=true;msg.textContent='Проверяем…';
     try{
       const {data,error}=await sb.functions.invoke('account-auth',{body:{action:accountAction,mode:accountMode,login:document.getElementById('account-login').value,password}});
       if(error){let message='Не удалось войти. Попробуйте позже';try{message=(await error.context.json()).error||message}catch(_){}throw new Error(message)}
@@ -2104,15 +2106,17 @@ window.ElvaSplash = (() => {
       const session=await sb.auth.setSession(data.session);if(session.error)throw session.error;
       await afterVerified();
     }catch(e){msg.textContent=e.message||'Не удалось войти';}
-    finally{btn.disabled=false;const p=document.getElementById('account-password');if(p)p.value='';const q=document.getElementById('account-password-repeat');if(q)q.value='';}
+    finally{accountBusy=false;btn.disabled=false;const p=document.getElementById('account-password');if(p)p.value='';const q=document.getElementById('account-password-repeat');if(q)q.value='';}
   }
   async function accountRecovery(){
     const msg=document.getElementById('account-message');
     if(accountMode==='username'){msg.textContent='Для восстановления доступа обратитесь в поддержку: '+SUPPORT_EMAIL;return;}
     const email=document.getElementById('account-login').value.trim();
     if(!email.includes('@')){msg.textContent='Сначала укажите email';return;}
-    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
-    msg.textContent=error?'Не удалось отправить письмо. Попробуйте позже':'Если аккаунт существует, на почту придёт ссылка для восстановления.';
+    try{
+      const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:location.origin+location.pathname});
+      msg.textContent=error?'Не удалось отправить письмо. Попробуйте позже':'Если аккаунт существует, на почту придёт ссылка для восстановления.';
+    }catch(_){msg.textContent='Нет связи с сервером. Попробуйте ещё раз';}
   }
   function showAccountRecovery(){
     showLogin('account');document.getElementById('account-methods').innerHTML='';
@@ -2123,10 +2127,14 @@ window.ElvaSplash = (() => {
     const password=document.getElementById('recovery-password').value,msg=document.getElementById('recovery-message');
     if(password.length<8||password!==document.getElementById('recovery-repeat').value){msg.textContent='Проверьте длину и совпадение паролей';return;}
     const btn=document.getElementById('recovery-submit');btn.disabled=true;
-    const {error}=await sb.auth.updateUser({password});btn.disabled=false;
-    if(error){msg.textContent='Не удалось сохранить пароль';return;}
-    const completed=await sb.rpc('complete_account_login');if(completed.error){msg.textContent='Обратитесь в поддержку для восстановления профиля';return;}
-    await afterVerified();
+    try{
+      const {error}=await sb.auth.updateUser({password});
+      if(error){msg.textContent='Не удалось сохранить пароль';return;}
+      const completed=await sb.rpc('complete_account_login');if(completed.error){msg.textContent='Обратитесь в поддержку для восстановления профиля';return;}
+      accountRecoveryPending=false;
+      await afterVerified();
+    }catch(_){msg.textContent='Нет связи с сервером. Попробуйте ещё раз';}
+    finally{btn.disabled=false;}
   }
 
   // ---------- вход по номеру ----------
@@ -4458,7 +4466,7 @@ window.ElvaSplash = (() => {
       <div class="order-card profile-card">
         ${circle}
         <div class="profile-name">${esc(name)}</div>
-        <div class="profile-phone">${esc(formatPhone(myProfile && myProfile.phone))}</div>
+        <div class="profile-phone">${esc(myProfile && myProfile.phone ? formatPhone(myProfile.phone) : 'Телефон не указан')}</div>
         ${extra}
         ${note ? `<p class="profile-note">${note}</p>` : ''}
         ${buttons ? `<div class="btn-stack">${buttons}</div>` : ''}
