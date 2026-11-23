@@ -1140,6 +1140,7 @@
   .ride-address-copy{display:grid;gap:3px;min-width:0;overflow-wrap:anywhere;}
   .ride-address-copy small{font-size:12px;color:var(--muted);font-weight:650;}
   .ride-address-copy strong{font-size:14px;}
+  .ride-placeholder, .ride-entry input::placeholder, #ride-new-stop::placeholder{color:var(--muted);opacity:1;}
   .ride-destination-row{display:flex;align-items:center;border-top:1px solid var(--line);}
   .ride-destination-row .ride-destination{flex:1;min-width:0;border-top:0;grid-template-columns:16px minmax(0,1fr);}
   .ride-add-address{flex:none;display:grid;place-items:center;width:44px;height:44px;border:0;border-radius:10px;background:transparent;color:var(--text);font:inherit;font-size:30px;font-weight:400;cursor:pointer;}
@@ -2731,7 +2732,7 @@ window.ElvaSplash = (() => {
     dialog.querySelector('.ride-add-stop').onclick = () => {
       const form = document.createElement('form');
       form.className = 'ride-dialog-form';
-      form.innerHTML = '<label for="ride-new-stop">Куда?</label><input id="ride-new-stop" maxlength="180" required>'
+      form.innerHTML = '<input id="ride-new-stop" maxlength="180" placeholder="Куда" aria-label="Куда" required>'
         + '<button class="btn-primary">Добавить</button>';
       const input = form.querySelector('input');
       const recent = [...new Set(orders.filter(o => o.passengerId === passengerId).flatMap(o => o.stops))].slice(-5);
@@ -2930,14 +2931,14 @@ window.ElvaSplash = (() => {
           <div class="ride-route">
             <div class="field">
               <span class="ride-dot" aria-hidden="true"></span>
-              <div class="ride-entry"><label for="f-from">Откуда</label>
-                <input id="f-from" type="text" maxlength="180" placeholder="ул. Ленина, 10">
+              <div class="ride-entry">
+                <input id="f-from" type="text" maxlength="180" placeholder="Откуда" aria-label="Откуда">
               </div>
               <button type="button" class="ride-entrance" onclick="showRideEntrance()">Подъезд${rideDraft.entrance ? ' ' + esc(rideDraft.entrance) : ''}</button>
             </div>
-            <div class="ride-destination-row"><button type="button" class="ride-destination" onclick="showRideStops()">
+            <div class="ride-destination-row"><button type="button" class="ride-destination" onclick="showRideStops(${rideDraft.stops.length === 0})">
               <span class="ride-dot" aria-hidden="true"></span>
-              <span class="ride-address-copy"><small>Куда</small><strong>${esc(destination || 'Куда едем?')}</strong></span>
+              <span class="ride-address-copy"><strong class="${destination ? '' : 'ride-placeholder'}">${esc(destination || 'Куда')}</strong></span>
             </button><button type="button" class="ride-add-address" aria-label="Добавить адрес" onclick="showRideStops(true)" ${rideDraft.stops.length >= 8 ? 'disabled' : ''}>+</button></div>
           </div>
           ${rideFormRow(price || 'Предложите цену', '', 'showRidePrice()')}
