@@ -40,3 +40,15 @@ self.addEventListener('notificationclick', event => {
     await self.clients.openWindow(url);
   })());
 });
+
+// Для экранов и кода используем свежий HTTP-ответ, не браузерный кэш.
+// API другого домена и push-подписки не затрагиваются.
+self.addEventListener('fetch',event=>{
+  const request=event.request;
+  if(request.method!=='GET')return;
+  const url=new URL(request.url);
+  if(url.origin!==self.location.origin||!url.href.startsWith(self.registration.scope))return;
+  if(request.mode==='navigate'||['script','style'].includes(request.destination)){
+    event.respondWith(fetch(new Request(request,{cache:'no-store'})));
+  }
+});
