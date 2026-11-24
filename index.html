@@ -2678,7 +2678,14 @@ window.ElvaSplash = (() => {
     };
   }
 
+  function setRideDestination(value){
+    const address = String(value || '').trim();
+    rideDraft.stops = address ? [address] : [];
+  }
+
   function showRideStops(addNew = false){
+    const firstDestination = document.getElementById('f-to');
+    if(firstDestination) setRideDestination(firstDestination.value);
     const dialog = showRideSheet('Адреса прибытия', '<div class="ride-dialog-form"><div class="ride-stops"></div>'
       + '<button class="btn-ghost ride-add-stop">Добавить адрес</button>'
       + '<button class="btn-primary ride-save-stops">Готово</button></div>');
@@ -2936,10 +2943,15 @@ window.ElvaSplash = (() => {
               </div>
               <button type="button" class="ride-entrance" onclick="showRideEntrance()">Подъезд${rideDraft.entrance ? ' ' + esc(rideDraft.entrance) : ''}</button>
             </div>
-            <div class="ride-destination-row"><button type="button" class="ride-destination" onclick="showRideStops(${rideDraft.stops.length === 0})">
-              <span class="ride-dot" aria-hidden="true"></span>
-              <span class="ride-address-copy"><strong class="${destination ? '' : 'ride-placeholder'}">${esc(destination || 'Куда')}</strong></span>
-            </button><button type="button" class="ride-add-address" aria-label="Добавить адрес" onclick="showRideStops(true)" ${rideDraft.stops.length >= 8 ? 'disabled' : ''}>+</button></div>
+            <div class="ride-destination-row">${rideDraft.stops.length > 1 ? `
+              <button type="button" class="ride-destination" onclick="showRideStops()">
+                <span class="ride-dot" aria-hidden="true"></span>
+                <span class="ride-address-copy"><strong>${esc(destination)}</strong></span>
+              </button>` : `
+              <div class="ride-destination">
+                <span class="ride-dot" aria-hidden="true"></span>
+                <div class="ride-entry"><input id="f-to" type="text" maxlength="180" placeholder="Куда" aria-label="Куда" value="${escapeAttr(rideDraft.stops[0] || '')}" oninput="setRideDestination(this.value)" onchange="setRideDestination(this.value)"></div>
+              </div>`}<button type="button" class="ride-add-address" aria-label="Добавить адрес" onclick="showRideStops(true)" ${rideDraft.stops.length >= 8 ? 'disabled' : ''}>+</button></div>
           </div>
           ${rideFormRow(price || 'Предложите цену', '', 'showRidePrice()')}
           ${rideFormRow('Опции', options ? 'Выбрано: ' + options : '', 'showRideOptions()')}
@@ -3049,6 +3061,8 @@ window.ElvaSplash = (() => {
   async function submitOrder(){
     if(!isConfigured || orderSubmission?.busy) return;
     const from = document.getElementById('f-from')?.value.trim();
+    const firstDestination = document.getElementById('f-to');
+    if(firstDestination) setRideDestination(firstDestination.value);
     if(!from || !rideDraft.stops.length || !validRidePrice(rideDraft.price)){
       const dialog = document.querySelector('.ride-dialog');
       if(dialog){
